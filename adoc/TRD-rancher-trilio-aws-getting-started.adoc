@@ -103,17 +103,17 @@ SUSE Rancher is a tool to install and configure Kubernetes in a choice of enviro
 Rancher is a complete container management platform built on upstream Kubernetes.
 It consists of three major components:
 
-* A certified Kubernetes Distribution – Rancher Kubernetes Engine (RKE)
+* A certified Kubernetes Distribution – EKS
 * A Kubernetes Management platform (Rancher)
 * Application Catalog and management (Third-party)
 
 Rancher has the capabilities to manage any Kubernetes cluster from a central location, via the
-Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor and is not restricted to RKE.
+Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor such as EKS, and is not restricted to RKE or K3S.
 
 image::rancher-mongo-2.png[scaledwidth="75%", align="center"]
 
-For reference, see Rancher deployment guides for specific details on installation.    
-By the end of this step, you should have a cluster with one master and three worker nodes.
+For reference, see Rancher deployment QuickStart guide for details on installation. https://github.com/rancher/quickstart    
+By the end of this step, you should have two clusters with multiple master and worker nodes. 
 
 image::rancher-mongo-3.png[scaledwidth="75%", align="center"]
 
