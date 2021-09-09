@@ -433,7 +433,7 @@ helm install my-release bitnami/wordpress
 ----
 You can launch the wordpress app via a browser and make changes to the sample page to ensure changes are captured when you restore.
 
-* Create a Namespace Backup*
+* Create a Namespace Backup
 
 ** Create a backupPlan to backup the namespace
 [source,bash]
