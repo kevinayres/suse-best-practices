@@ -57,9 +57,8 @@ an agile data platform that helps organizations achieve their cloud native goals
 
 == Technical overview
 
-SUSE Rancher is a lightweight Kubernetes installer that supports installation on bare-metal and virtualized servers.  
-Rancher solves a common issue in the Kubernetes community: installation complexity.  With Rancher, Kubernetes installation is simplified, 
-regardless of what operating systems and platforms you are running.
+SUSE Rancher is a lightweight Kubernetes installer that supports installation on bare-metal and virtualized machines and instances.  
+Rancher solves a common issue in the Kubernetes community: installation complexity.  With Rancher, Kubernetes installation is greatly simplified.
 
 This document reviews considerations for deploying and managing a highly available, MongoDB NoSQL database on a 
 SUSE Rancher Kubernetes cluster.
