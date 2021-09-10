@@ -4,7 +4,7 @@
 = TrilioVault with SUSE Rancher on AWS - Getting Started
 
 // SUSE Rancher - Trilio - AWS
-// :author: Kevin Ayres
+// :author: Kevin Ayres, Stephen Mogg, Prashanto Kochavara
 :revnumber: 0.0.1
 :toc2:
 :toc-title: TrilioVault with SUSE Rancher on AWS - Getting Started
@@ -19,58 +19,52 @@ cloud native methodologies that focus on microservices architectures and streaml
 Container technologies, like Kubernetes, embody this agile approach and help enable cloud native transformation.
 
 SUSE Rancher simplifies Kubernetes management, empowering you to take control of your IT landscape and create 
-an agile data platform that accelerates achievement of your goals.  
-Rancher enables you to manage dynamic, robust, multi-cluster Kubernetes environments and supports any 
-CNCF-certified Kubernetes distribution.  With built-in resilience and scalability, unified security and policy management, 
-and a rich catalog of shared tools and services, Rancher helps you accelerate development-to-production and innovate everywhere.
+an agile data platform that accelerates achievement of your goals. Rancher enables you to manage dynamic, robust, multi-cluster Kubernetes environments and supports any CNCF-certified Kubernetes distribution.  With built-in resilience and scalability, unified security and policy management, and a rich catalog of shared tools and services, Rancher helps you accelerate development-to-production and innovate everywhere.
 
-Amazon Web Services the world leader in public cloud services. Natice storage services within AWS, provide an ideal integration point for SUSE Rancher with TrilioVault backups. By leveraging the immutable storage capabilities within TrilioVault and Amazon S3 and Glacier, the administrator is enabled toward unparalleled data integrity and mobility. 
+Amazon Web Services the world leader in public cloud services. Native storage services within AWS, provide an ideal integration point for SUSE Rancher with TrilioVault backups. By leveraging the immutable storage capabilities within TrilioVault, Amazon S3 and Glacier, the administrator is empowered with unparalleled data integrity and mobility. 
 
-TrilioVault is a cloud native backup technology that brings all the power of the traditional, 
-backup software and provides a more natural way to work with modern data.  
-TrilioVault offers a variety of compelling features that make it a natural partner for a SUSE Rancher agile data platform.  
-These include:
+TrilioVault is a cloud native backup technology that brings all the power of the traditional, backup software and provides a more natural way to work with modern data.  TrilioVault offers a variety of compelling features that make it a natural partner for a SUSE Rancher agile data platform, including: 
 
-Data Protection:
+Data Protection::
+
 Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data.
 Ransomware claimed nearly ~$40K in Q3 2019, and organizations had data unavailable for an average of 12.1 days amongst other direct and indirect losses. Point-in-time data protection is a key solution to help protect data from Ransomware outages.
 
-Disaster Recovery:
+Disaster Recovery::
 Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data. The same backup and recovery technology can be leveraged in case of outages at the primary site to restore an entire environment to a separate location, fulfilling Disaster Recovery.
-TrilioVault backups are application aware and includes all artifacts that define the application. These include persistent data, Pod definitions, config maps, secrets, and other items. It recovers the entire application allowing you to achieve the most optimal RTO possible. 
 
-Migration:
+TrilioVault backups are application aware and include all artifacts that define the application. These include persistent data, Pod definitions, config maps, secrets, and other items. It recovers the entire application allowing you to achieve the most optimal RTO possible. 
+
+Migration::
 You may need to migrate applications from one cloud platform to another or one Kubernetes cluster to a different Kubernetes cluster. Most businesses and compliance initiatives are now mandating IT organizations to have a proven multi-cloud strategy - so that they are not locked to a specific cloud vendor. IT departments are now required to demonstrate their multi-cloud strategy by recovering business applications in multiple clouds. By choosing cloud storage as backup target, TrilioVault can demonstrate an application migration use case.
 
-Test and Development:
+Test and Development::
 Another popular use case is test and development for DevOps. There are a plethora of tools that can help you achieve DevOps, but most of them lack the capability to version control the production data. Exiting DevOp tools can help version control the code and help you streamline processes. However, in some instances you may a need point-in-time of production data for you DevOps processes including identifying performance bottlenecks, troubleshooting data corruption and other issues. TrilioVault can reliably restore a point-in-time of your production application including its associated data for test and development needs.
 
-Ransomware Protection:
+Ransomware Protection::
 Trilio provides and will continue to innovate its strategy to protect against ransomware attacks. Ransomware protection from Trilio is aligned to the pillars of the NIST and NCCoE cybersecurity frameworks. The pillars are defined as Identify and Protect, Detect and Mitigate, and Recover. Trilio has built (and is building) features to align with these pillars:
 
 Identify and Protect - Application discovery, Security Validations Immutable backups, Encryption, Zero-Trust etc.
 Detect and Mitigate - Scanning of Backups, Anomaly Detection, Notifications into Slack/Teams etc.
 Recover - Deep logging, Isolation testing, DR workflows and multiple target types to increase recoverability surface.
 
-
 == Technical overview
 
-SUSE Rancher is a lightweight Kubernetes installer that supports installation on bare-metal and virtualized machines and instances.  
-Rancher solves a common issue in the Kubernetes community: installation complexity.  With Rancher, Kubernetes installation is greatly simplified.
+SUSE Rancher is a lightweight Kubernetes installer and orchestration tool that supports installation on bare-metal and virtualized machines and instances.  Rancher solves a common issue in the Kubernetes community: installation complexity and manageability.  With Rancher, Kubernetes is greatly simplified. Rancher manages landscapes across k8s distributions and geographies from a single pane of glass.
 
-This document reviews considerations for deploying and managing a highly available, MongoDB NoSQL database on a 
-SUSE Rancher Kubernetes cluster.
+This document reviews considerations for deploying and managing a highly secure application backup topology using 
+SUSE Rancher, TrilioVault and Amazon S3 storage.
 
 In practice, the process is as follows:
 
-* Install a Kubernetes cluster through Rancher Kubernetes Engine
-* Install a cloud native storage solution on Kubernetes
-* Deploy https://docs.mongodb.com/kubernetes-operator/master/[MongoDB Enterprise Kubernetes Operator]
+* Install a Kubernetes cluster using Rancher Kubernetes Engine on AWS EC2 via fully maintained Terraform based QuickStart.
+  https://rancher.com/docs/rancher/v2.x/en/quick-start-guide/deployment/amazon-aws-qs/ 
+* Deploy AWS EKS Cluster for production Pods.
+* Install a cloud native storage solution on Kubernetes 
 * Configure a storage class and define storage requirements via Operator
-* Test failover by killing or cordoning nodes in your cluster
+* Test backup, recovery, and data immutability (delete/encrypt.)
 
-
-== Value of HA for data
+== Value of backup data integrity
 
 One of the primary benefits of running a Kubernetes environment is flexibility, the ability to easily adapt to varying circumstances.  
 Traditional database deployments exist in fairly static configurations and environments.  The beauty of running a data-oriented service 
