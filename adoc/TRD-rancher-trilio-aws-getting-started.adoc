@@ -28,7 +28,6 @@ TrilioVault is a cloud native backup technology that brings all the power of the
 Data Protection::
 
 Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data.
-Ransomware claimed nearly ~$40K in Q3 2019, and organizations had data unavailable for an average of 12.1 days amongst other direct and indirect losses. Point-in-time data protection is a key solution to help protect data from Ransomware outages.
 
 Disaster Recovery::
 Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data. The same backup and recovery technology can be leveraged in case of outages at the primary site to restore an entire environment to a separate location, fulfilling Disaster Recovery.
@@ -44,9 +43,9 @@ Another popular use case is test and development for DevOps. There are a plethor
 Ransomware Protection::
 Trilio provides and will continue to innovate its strategy to protect against ransomware attacks. Ransomware protection from Trilio is aligned to the pillars of the NIST and NCCoE cybersecurity frameworks. The pillars are defined as Identify and Protect, Detect and Mitigate, and Recover. Trilio has built (and is building) features to align with these pillars:
 
-Identify and Protect - Application discovery, Security Validations Immutable backups, Encryption, Zero-Trust etc.
-Detect and Mitigate - Scanning of Backups, Anomaly Detection, Notifications into Slack/Teams etc.
-Recover - Deep logging, Isolation testing, DR workflows and multiple target types to increase recoverability surface.
+. Identify and Protect - Application discovery, Security Validations Immutable backups, Encryption, Zero-Trust etc.
+. Detect and Mitigate - Scanning of Backups, Anomaly Detection, Notifications into Slack/Teams etc.
+. Recover - Deep logging, Isolation testing, DR workflows and multiple target types to increase recoverability surface.
 
 == Technical overview
 
@@ -274,356 +273,244 @@ provisioning a persistent volume (PV). As part of deployment, the Kubernetes ope
 https://kubernetes.io/docs/concepts/storage/persistent-volumes[persistent volumes] for the Ops Manager StatefulSets. 
 The Kubernetes container uses persistent volumes to maintain the cluster state between restarts.
 
+== TrilioVault for Kubernetes Pre-Flight
 
-== Deploying MongoDB Kubernetes Operator
+Before proceeding with the install of the TrilioVault for Kubernetes solution, a pre-flight check should be performed to ensure that the cluster is prepared correctly for a TrilioVault installation. Trilio provides a preflight check via Krew (kubectl based extension) to validate a Kubernetes cluster before install. The preflight validator confirms configuration settings such as availability of a storageclass, volumesnapshotclass, correct utilities exist etc. 
+Please follow the instructions from https://docs.trilio.io/kubernetes/support/support-and-issue-filing/tvk-preflight-checks[Trilio Pre-Flight]
 
-Kubernetes needs help creating and managing stateful applications like databases.  The typical lifecycle events of a MongoDB cluster may 
-include provisioning storage and computing power, configuring network connections, setting up users, and more.  
-This is where the MongoDB Enterprise Kubernetes Operator comes in.  It translates the human knowledge of how to create a MongoDB 
-instance into a scalable, repeatable, and standardized methodology.  And it does this by using the built-in Kubernetes API and tools.
-To use the operator, you simply need to provide it with the specifications for your MongoDB cluster.  
-The operator uses this information to direct Kubernetes into performing all the required steps to achieve the end state.
+== Deploying TrilioVault for Kubernetes Operator
 
-The general commands for deploying the MongoDB Enterprise Operator are:
+TrilioVault for Kubernetes provides an operator as a Rancher Partner Chart for Kubernetes cluster deployments and it is present on the Rancher Apps & Marketplace. Here are the instructions to install TVK as a Rancher Partner Chart on RKE cluster deployment.
 
-[source,bash]
-----
-kubectl describe deployments mongodb-enterprise-operator -n <namespace>
+Note: TVK Operator deployment as Rancher Partner chart is supported only on Rancher server v2.5 and above.
 
 
-helm install <chart-name> helm_chart \
-     --values helm_chart/values.yaml \
-----
-
-
-The next step after deploying the operator is to create the database using a `yaml` file, such as:
+. Login to the Rancher Server web console
+. Select the RKE cluster deployment from the list of cluster deployments, click on the cluster name to view details
+. Click on the Cluster Explorer on top right corner to view all resources
+. Click on the dropdown 'Cluster Explorer' on the top left corner and select 'Apps & Marketplace'
+. From the list of the Partner Charts type 'Trilio' in the filter to see TVK operator
+. Click on the k8s-triliovault-operator  to begin the Operator installation on the K8s cluster
+. You can select the desired namespace from the 'Namespace' dropdown list for the installation. 
+. Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
 
 [source,bash]
 ----
-apiVersion: mongodb.com/v1
-kind: MongoDB
+helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
+creating 8 resource(s)
+beginning wait for 8 resources with timeout of 10m0s
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+NAME: k8s-triliovault-operator
+LAST DEPLOYED: Thu Apr 8 07:15:53 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+To verify that TrilioVault Operator has started, run:
+kubectl --namespace=default get deployments -l "release=k8s-triliovault-operator"
+---------------------------------------------------------------------
+SUCCESS: helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
+---------------------------------------------------------------------
+----
+
+After the installation is complete, you can verify it from the list of 'Installed Apps'
+
+
+== Installing TrilioVault Manager
+
+TrilioVault manager is an instance of the TrilioVault solution running in your namespace or your cluster (as the solution supports both namespace and cluster scoped deployments)
+
+This section assumes that you have installed kubectl and helm installed and correctly configured to work with desired Kubernetes cluster. 
+As part of the install, Trilio first requires the Operator to be deployed (which was done in the previous step), after which the application is deployed via the TrilioVault Manager (TVM) Resource created by the Operator.
+
+* Add the Trilio Helm repository to your local setup
+[source,bash]
+----
+helm repo add triliovault-operator http://charts.k8strilio.net/trilio-stable/k8s-triliovault-operator
+helm repo add triliovault http://charts.k8strilio.net/trilio-stable/k8s-triliovault
+helm repo update
+----
+
+* Verify TrilioVault operator pods are running
+[source,bash]
+----
+$ kubectl get pods -l release=triliovault-operator
+NAME                                                             READY   STATUS    RESTARTS   AGE
+triliovault-operator-k8s-triliovault-operator-7bf447967f-w5tgd   1/1     Running   0          2m7s
+----
+
+* Deploy TrilioVault Manager
+The TrilioVault custom resource name is TrilioVaultManager
+TrilioVault Operator defines this Custom Resource (CR).
+To configure resource limits for TVK components please refer to https://docs.trilio.io/kubernetes/performance/configuring-resource-limits [Resource Limits]
+Installation via Helm v3
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: TrilioVaultManager
 metadata:
-
-  name: <my-standalone>
-
+  labels:
+    triliovault: triliovault
+  name: triliovault-manager
+  namespace: default
 spec:
-
-  version: "4.2.2-ent"
-
-  opsManager:
-    configMapRef:
-
-      name: <configMap.metadata.name>
-
-            # Must match metadata.name in ConfigMap file
-
-  credentials: <mycredentials>
-
-  type: Standalone
-  persistent: true
+  trilioVaultAppVersion: v2.1.0
+  helmVersion:
+    version: v3
+  applicationScope: Cluster
+  #restoreNamespaces: ["kube-system", "default", "restore-ns"]
+  #resources:
+    #requests:
+      #memory: 400Mi
 ----
 
-
-Now, you can deploy the database and check the status of the deployment with:
-
+In the CRD example below,restoreNamespaces is optional.  To restrict restores to specific namespaces  specify the namespaces for that field.
 [source,bash]
 ----
-kubectl apply -f <standalone-conf>.yaml
-
-kubectl get mdb <resource-name> -o yaml
+$ kubectl create -f triliovault-manager.yaml
 ----
 
-
-
-At this point, MongoDB has been deployed via the operator. Additional settings can be applied to create 
-https://docs.mongodb.com/kubernetes-operator/stable/tutorial/deploy-replica-set/[replica] sets to further enhance data availability.  
-Also, sharded clusters can be created to enable greater throughput across a distributed system.
-
-Additionally, see specific https://github.com/mongodb/mongodb-enterprise-kubernetes[documentation] and steps for full installation 
-and configuration options.
-
-
-== Deploying MongoDB Ops Manager resource
-
-Kubernetes needs help creating and managing stateful applications like databases.  The typical lifecycle events of a MongoDB cluster may 
-include provisioning, storage and compute. Ops Manager can be deployed via the MongoDB Kubernetes Operator to manage MongoDB resources 
-in a cluster.  The Operator manages the lifecycle of each of these deployments differently.
-The Operator manages Ops Manager deployments using the Ops Manager custom resource. The Operator watches the custom resource’s 
-specification for changes. When the specification changes, the Operator validates the changes and makes the appropriate updates to the 
-resources in the cluster.
-Ops Manager custom resources specification defines the following components: Application Database, Ops Manager application, 
-and Backup Daemon. Summarized instructions to create Ops Manager are below, but full details can be found 
-https://docs.mongodb.com/kubernetes-operator/master/tutorial/deploy-om-container[here].
-
-To begin, run the following command to execute all `kubectl` commands in the namespace you created:
-
+* List CR of TrilioVaultManager
 [source,bash]
 ----
-kubectl config set-context $(kubectl config current-context) --namespace=<namespace>
+kubectl get triliovaultmanager
+NAME                  TRILIOVAULT-VERSION   SCOPE     STATUS     RESTORE-NAMESPACES
+triliovault-manager   v2.1.0                Cluster   Deployed   [kube-system default restore-ns]
 ----
 
-Create Ops Manager object as below:
-
+* List pods created by TrilioVaultManager CR are running
 [source,bash]
 ----
-apiVersion: mongodb.com/v1
-kind: MongoDBOpsManager
+$ kubectl get pods
+k8s-triliovault-admission-webhook-544b566979-4lw7q                1/1     Running     0          7d2h
+k8s-triliovault-backend-5b79996f48-djzd4                          1/1     Running     0          7d2h
+k8s-triliovault-control-plane-78c7d589fb-d2829                    1/1     Running     0          7d2h
+k8s-triliovault-exporter-789c785968-vn7hf                         1/1     Running     0          7d2h
+k8s-triliovault-ingress-controller-54c55b58cf-vw7s7               1/1     Running     0          7d2h
+k8s-triliovault-web-85d58df67b-jqnln                              1/1     Running     0          7d2h
+----
+
+* TrilioVault is now successfully installed on your cluster.
+
+== Test Namespace Capture and Recovery
+ 
+Trilio supports multiple ways of capturing applications - labels, helm, operators, namespaces and direct object reference, however, for this guide we will validate a successful installation and operation of TrilioVault for Kubernetes, perform a Namespace backup/restore.
+
+High-level Steps:
+
+. Create a namespace called 'wordpress'  
+. Use helm to deploy a wordpress application into the namespace.
+. Perform a backup of the namespace
+. Delete the namespace/application
+. Create a new namespace 'wordpress-restore'
+. Perform a Restore of the namespace
+
+Detailed Steps:
+
+* Create a namespace and deploy the application*
+** Create the namespace called 'wordpress'
+[source,bash]
+----
+$ kubectl create ns wordpress
+namespace/wordpress created
+----
+
+** Install the wordpress Helm Chart
+[source,bash]
+----
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install my-release bitnami/wordpress
+----
+You can launch the wordpress app via a browser and make changes to the sample page to ensure changes are captured when you restore.
+
+* Create a Namespace Backup
+
+** Create a backupPlan to backup the namespace
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: BackupPlan
 metadata:
-  name: <myopsmanager>
+  name: ns-backupplan-1
+  namespace: wordpress
 spec:
-  replicas: 1
-  version: <opsmanagerversion>
-  adminCredentials: <adminusercredentials> # Should match metadata.name
-  externalConnectivity:
-    type: LoadBalancer
-  applicationDatabase:
-    members: 3
-    version: <mongodbversion>
-    persistent: true
+  backupConfig:
+    target:
+      namespace: default
+      name: demo-s3-target
 ----
 
+** Backup the Namespace
+Use the following YAML to build the Backup CR
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: Backup
+metadata:
+  name: wordpress-ns-backup-1
+  namespace: wordpress
+spec:
+  type: Full
+  scheduleType: OneTime
+  backupPlan:
+    name: ns-backupplan-1
+    namespace: wordpress
+----
 
-== Loading and querying the database
+* Delete the namespace*
+[source,bash]
+----
+kubectl delete ns wordpress
+----
 
-When the database has been created, you can populate it with some sample data.
+* Create a new namespace*
+[source,bash]
+----
+kubectl create ns wordpress-restore
+----
 
-First, find the pod that is running MongoDB:
+* Restore the Backup/Namespace*
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: Restore
+metadata:
+  name: ns-restore
+  namespace: wordpress-restore
+spec:
+  source:
+    type: Backup
+    backup:
+      name: wordpress-ns-backup-1
+      namespace: wordpress
+  restoreNamespace: wordpress-restore
+----
+
+Validate the pods are up and running after restore completes.
+[source,bash]
+----
+$ kubectl get restore
+NAME         BACKUP                  STATUS      DATA SIZE   START TIME             END TIME               PERCENTAGE COMPLETED
+ns-restore   wordpress-ns-backup-1   Completed   188312911   2020-11-13T18:47:33Z   2020-11-13T18:49:58Z   100
+----
 
 [source,bash]
 ----
-POD=`kubectl get pods -l app=mongo | grep Running | grep 1/1 | awk '{print $1}'`
+$ kubectl get pods 
+NAME                              READY   STATUS    RESTARTS   AGE
+wordy-mariadb-0                   1/1     Running   0          4m21s
+wordy-wordpress-5cc764564-mngrm   1/1     Running   0          4m21s
 ----
 
-Then, access the MongoDB shell on that POD instance:
-
-[source,bash]
-----
-$ kubectl exec -it $POD mongo
-MongoDB shell version v4.0.0
-connecting to: mongodb://127.0.0.1:27017
-MongoDB server version: 4.0.0
-Welcome to the MongoDB shell.
-----
-
-Now, using the MongoDB shell, you can populate a collection:
-
-[source,bash]
-----
-db.ships.insert({name:'USS Enterprise-D',operator:'Starfleet',type:'Explorer',class:'Galaxy',crew:750,codes:[10,11,12]})
-db.ships.insert({name:'USS Prometheus',operator:'Starfleet',class:'Prometheus',crew:4,codes:[1,14,17]})
-db.ships.insert({name:'USS Defiant',operator:'Starfleet',class:'Defiant',crew:50,codes:[10,17,19]})
-db.ships.insert({name:'IKS Buruk',operator:' Klingon Empire',class:'Warship',crew:40,codes:[100,110,120]})
-db.ships.insert({name:'IKS Somraw',operator:' Klingon Empire',class:'Raptor',crew:50,codes:[101,111,120]})
-db.ships.insert({name:'Scimitar',operator:'Romulan Star Empire',type:'Warbird',class:'Warbird',crew:25,codes:[201,211,220]})
-db.ships.insert({name:'Narada',operator:'Romulan Star Empire',type:'Warbird',class:'Warbird',crew:65,codes:[251,251,220]})
-----
-
-And you can run some operations on the MongoDB collection.
-
-For example, find one arbitrary document:
-
-[source,bash]
-----
-db.ships.findOne()
-{
-	"_id" : ObjectId("5b5c16221108c314d4c000cd"),
-	"name" : "USS Enterprise-D",
-	"operator" : "Starfleet",
-	"type" : "Explorer",
-	"class" : "Galaxy",
-	"crew" : 750,
-	"codes" : [
-		10,
-		11,
-		12
-	]
-}
-----
-
-
-You can also find ALL documents and apply some basic formatting:
-
-[source,bash]
-----
-db.ships.find().pretty()
- {
- 	"_id" : ObjectId("5b5c16221108c314d4c000d1"),
- 	"name" : "IKS Somraw",
- 	"operator" : " Klingon Empire",
- 	"class" : "Raptor",
- 	"crew" : 50,
- 	"codes" : [
- 		101,
- 		111,
- 		120
- 	]
- }
- {
- 	"_id" : ObjectId("5b5c16221108c314d4c000d2"),
- 	"name" : "Scimitar",
- 	"operator" : "Romulan Star Empire",
- 	"type" : "Warbird",
- 	"class" : "Warbird",
- 	"crew" : 25,
- 	"codes" : [
- 		201,
- 		211,
- 		220
- 	]
- }
-----
-
-
-And you can get a list of the names of the ships:
-
-[source,bash]
-----
- db.ships.find({}, {name:true, _id:false})
- { "name" : "USS Enterprise-D" }
- { "name" : "USS Prometheus" }
- { "name" : "USS Defiant" }
- { "name" : "IKS Buruk" }
- { "name" : "IKS Somraw" }
- { "name" : "Scimitar" }
- { "name" : "Narada" }
-----
-
-
-== Simulating node failure & restoration
-
-Next, simulate a node failure by cordoning off the node on which MongoDB is running:
-
-[source,bash]
-----
-$ NODE=`kubectl get pods -l app=mongo -o wide | grep -v NAME | awk '{print $7}'`
-
-$ kubectl cordon ${NODE} node/ip-172-31-29-132.compute.internal cordoned
-----
-
-The above command disables scheduling on one of the nodes.
-Check this with:
-
-[source,bash]
-----
-$ kubectl get nodes
-NAME                                           STATUS                     ROLES               AGE   VERSION
-ip-172-31-24-121.compute.internal   Ready                      worker              47h   v1.13.4
-ip-172-31-26-49.compute.internal    Ready                      controlplane,etcd   47h   v1.13.4
-ip-172-31-28-65.compute.internal    Ready                      worker              47h   v1.13.4
-ip-172-31-29-132.compute.internal   Ready,SchedulingDisabled   worker              47h   v1.13.4
-----
-
-
-Now, go ahead and delete the MongoDB pod:
-
-[source,bash]
-----
-$ POD=`kubectl get pods -l app=mongo -o wide | grep -v NAME | awk '{print $1}'`
-$ kubectl delete pod ${POD}
-pod "mongo-68cc69bc95-7q96h" deleted
-----
-
-When the pod is deleted, it is relocated to the node with the replicated data, even when that node is in a different zone.  
-Each pod is rescheduled on the exact node where the data is stored.
-
-Verify this:
-
-[source,bash]
-----
-$ kubectl get pods -l app=mongo -o wide
-NAME                     READY     STATUS    RESTARTS   AGE       IP               NODE
-mongo-68cc69bc95-thqbm   1/1       Running   0          19s       192.168.82.119   ip-172-31-24-121.compute.internal
-----
-
-Note that a new pod has been created and scheduled in a different node.
-
-Next, uncordon the node to bring it back to action:
-
-[source,bash]
-----
-$ kubectl uncordon ${NODE}
-node/ip-172-31-29-132.compute.internal uncordoned
-----
-
-
-Finally, verify that the data is still available.
-
-To do so, find the pod name and run the ‘exec’ command, then access the Mongo shell:
-
-[source,bash]
-----
-POD=`kubectl get pods -l app=mongo | grep Running | grep 1/1 | awk '{print $1}'`
-kubectl exec -it $POD mongo
-MongoDB shell version v4.0.0
-connecting to: mongodb://127.0.0.1:27017
-MongoDB server version: 4.0.0
-Welcome to the MongoDB shell.
-----
-
-
-After that, query the collection to verify that the data is intact.
-
-Find one arbitrary document:
-
-[source,bash]
-----
-db.ships.findOne()
-{
-	"_id" : ObjectId("5b5c16221108c314d4c000cd"),
-	"name" : "USS Enterprise-D",
-	"operator" : "Starfleet",
-	"type" : "Explorer",
-	"class" : "Galaxy",
-	"crew" : 750,
-	"codes" : [
-		10,
-		11,
-		12
-	]
-}
-----
-
-
-Now, find all documents and apply formatting:
-
-[source,bash]
-----
-db.ships.find().pretty()
-…..
-{
-	"_id" : ObjectId("5b5c16221108c314d4c000d1"),
-	"name" : "IKS Somraw",
-	"operator" : " Klingon Empire",
-	"class" : "Raptor",
-	"crew" : 50,
-	"codes" : [
-		101,
-		111,
-		120
-	]
-}
-{
-	"_id" : ObjectId("5b5c16221108c314d4c000d2"),
-	"name" : "Scimitar",
-	"operator" : "Romulan Star Empire",
-	"type" : "Warbird",
-	"class" : "Warbird",
-	"crew" : 25,
-	"codes" : [
-		201,
-		211,
-		220
-	]
-}
-----
-
-For further validation, you can run all the same initial steps to compare that data is still available with originally queried values.
-
+Finally, confirm the changes on the wordpress launch pages that were made earlier.
 
 == Summary
 
-MongoDB with SUSE Rancher makes it possible to easily build, deploy, and manage resilient, scalable data services.
-
+TrilioVault for Kubernetes provides data management and data protection capabilities for your Kubernetes based applications running on SUSE Rancher. Trilio can be managed and operated fully via the CLI as well as the feature rich management console provided by Trilio.
 
 == Additional resources
 
@@ -631,7 +518,10 @@ For more information, visit:
 
 *	https://rancher.com/docs/rancher/v2.x/en/best-practices/[Rancher best practices guide]
 *	https://rancher.com/docs/rancher/v2.x/en/troubleshooting/[Rancher troubleshooting tips]
-*	https://github.com/mongodb/mongodb-kubernetes-operator[MongoDB best practices]
+*	https://docs.trilio.io/kubernetes/[TrilioVault for Kubernetes Documentation]
+*	https://docs.trilio.io/kubernetes/use-triliovault/installing-triliovault#rancher-deployments[Trilio Documentation for Rancher Deployments]
+*	https://docs.trilio.io/kubernetes/overview/getting-started [TrilioVault for Kubernetes Getting-Started]
+*	https://docs.trilio.io/kubernetes/architecture/custom-resource-definitions-application-1 [TrilioVault API Reference]
 
 ++++
 <?pdfpagebreak?>
