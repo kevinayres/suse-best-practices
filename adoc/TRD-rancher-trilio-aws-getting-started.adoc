@@ -56,9 +56,8 @@ SUSE Rancher, TrilioVault and Amazon S3 storage.
 
 In practice, the process is as follows:
 
-* Install a Kubernetes cluster using Rancher Kubernetes Engine on AWS EC2 via fully maintained Terraform based QuickStart.
-  https://rancher.com/docs/rancher/v2.x/en/quick-start-guide/deployment/amazon-aws-qs/ 
-* Deploy AWS EKS Cluster for production Pods.
+* Deploy your control plane EKS cluster and install Rancher Server using command line tools per https://rancher.com/docs/rancher/v2.6/en/installation/install-rancher-on-k8s/amazon-eks/ 
+* Use Rancher to deploy a second AWS EKS Cluster for production Pods.
 * Install a cloud native storage solution on Kubernetes 
 * Configure a storage class and define storage requirements via Operator
 * Test backup, recovery, and data immutability (delete/encrypt.)
@@ -97,8 +96,7 @@ It consists of three major components:
 * A Kubernetes Management platform (Rancher)
 * Application Catalog and management (Third-party)
 
-Rancher has the capabilities to manage any Kubernetes cluster from a central location, via the
-Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor such as EKS, and is not restricted to RKE or K3S.
+Rancher has the capabilities of managing any CNCF certified Kubernetes cluster from a central location, via the Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor such as EKS, and is not restricted to RKE or K3S.
 
 image::rancher-mongo-2.png[scaledwidth="75%", align="center"]
 
@@ -136,6 +134,9 @@ Some considerations you may need to follow for your storage solution include:
 
 
 Some common storage solutions to consider are as follows:
+
+https://aws.amazon.com/s3/[AWS S3]:: 
+Distributed Object Storage native to AWS. Amazon S3 object stores are available across all regions, and therefore all pods and clusters, and scales indefinitely. Amazon S3 also supports data immutability, in concert with TrilioVault. 
 
 https://longhorn.io[Longhorn]:: Distributed block storage system for Kubernetes. Originally developed by Rancher Labs.  
 Currently sandbox project of the Cloud Native Computing Foundation
