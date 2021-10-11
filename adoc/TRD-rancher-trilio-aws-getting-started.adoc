@@ -152,7 +152,7 @@ NAME		REGION		EKSCTL CREATED
 rancher-server	us-west-2	True
 ----
 
-Install an Ingress
+Install an Ingress Controller. You can optionally terminate SSL/TLS externally via a Load balancer
 
 [source,bash]
 ----
@@ -222,9 +222,150 @@ NAME                       TYPE           CLUSTER-IP       EXTERNAL-IP          
 ingress-nginx-controller   LoadBalancer   10.100.114.221   ab5241f5b6fd94a4f858fa064fc0dc91-798843822.us-west-2.elb.amazonaws.com   80:30000/TCP,443:32694/TCP   2m44s
 ----
 
-Set up DNS. In this example, I am using AWS R53 DNS for both by registrar and zones objects. 
+Set up DNS. In this example, I am using AWS R53 DNS for both by registrar and zones objects. I chose the domain name suse-demo2.de
 
-We can see that the CNAME record for the Ingress controller matches the DNS name created during Ingress deployment. 
+We can see that the CNAME record I create for the Ingress controller matches the DNS name created during Ingress deployment. 
+
+image::SUSE-TrilioVault-1.jpg[scaledwidth="75%", align="center"]  
+
+Add an additional alias record for the desired Rancher Server FQDN: https://rancher.suse-demo2.de
+
+image::SUSE-TrilioVault-2.jpg[scaledwidth="75%", align="center"]  
+
+Add the latest HELM chart for Rancher to your workstation
+
+[source,bash]
+----
+bash-3.2$ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+"rancher-latest" has been added to your repositories
+----
+
+Create a namespace
+
+[source,bash]
+----
+bash-3.2$ kubectl create namespace cattle-system
+namespace/cattle-system created
+----
+
+Install a Certificate Manager with JetStack for TLS 
+
+[source,bash]
+----
+bash-3.2$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.crds.yaml
+customresourcedefinition.apiextensions.k8s.io/certificaterequests.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/certificates.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/challenges.acme.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/clusterissuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/issuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/orders.acme.cert-manager.io created
+
+bash-3.2$ helm repo add jetstack https://charts.jetstack.io
+"jetstack" has been added to your repositories
+
+bash-3.2$ helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "ingress-nginx" chart repository
+...Successfully got an update from the "jetstack" chart repository
+...Successfully got an update from the "rancher-latest" chart repository
+Update Complete. ⎈Happy Helming!⎈
+
+bash-3.2$ helm install cert-manager jetstack/cert-manager   --namespace cert-manager   --create-namespace   --version v1.5.1
+NAME: cert-manager
+LAST DEPLOYED: Mon Oct 11 13:54:58 2021
+NAMESPACE: cert-manager
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+cert-manager v1.5.1 has been deployed successfully!
+
+In order to begin issuing certificates, you will need to set up a ClusterIssuer
+or Issuer resource (for example, by creating a 'letsencrypt-staging' issuer).
+
+More information on the different types of issuers and how to configure them
+can be found in our documentation:
+
+https://cert-manager.io/docs/configuration/
+
+For information on how to configure cert-manager to automatically provision
+Certificates for Ingress resources, take a look at the `ingress-shim`
+documentation:
+
+https://cert-manager.io/docs/usage/ingress/
+----
+
+Confirm Cert Manager is running
+
+[source,bash]
+----
+bash-3.2$ kubectl get pods --namespace cert-manager
+NAME                                      READY   STATUS    RESTARTS   AGE
+cert-manager-68fbdc7f4b-smdpx             1/1     Running   0          75s
+cert-manager-cainjector-d685c7bcf-mnpgs   1/1     Running   0          75s
+cert-manager-webhook-689f8c697b-7ddgv     1/1     Running   0          75s
+----
+
+Install Rancher as a container
+
+[source,bash]
+----
+bash-3.2$ helm install rancher rancher-latest/rancher   --namespace cattle-system   --set hostname=rancher.suse-demo2.de   --set bootstrapPassword=admin
+NAME: rancher
+LAST DEPLOYED: Mon Oct 11 13:59:29 2021
+NAMESPACE: cattle-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Rancher Server has been installed.
+
+NOTE: Rancher may take several minutes to fully initialize. Please standby while Certificates are being issued, Containers are started and the Ingress rule comes up.
+
+Check out our docs at https://rancher.com/docs/
+
+If you provided your own bootstrap password during installation, browse to https://rancher.suse-demo2.de to get started.
+
+If this is the first time you installed Rancher, get started by running this command and clicking the URL it generates:
+```
+echo https://rancher.suse-demo2.de/dashboard/?setup=$(kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}')
+```
+To get just the bootstrap password on its own, run:
+```
+kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}{{ "\n" }}'
+```
+Happy Containering!
+----
+
+Verify pods are running
+[source,bash]
+----
+bash-3.2$ kubectl get pods --namespace=cattle-system
+NAME                               READY   STATUS      RESTARTS   AGE
+helm-operation-29cqm               0/2     Completed   0          26s
+helm-operation-5zlwv               0/2     Completed   0          36s
+helm-operation-hggmq               0/2     Completed   0          56s
+helm-operation-mp54x               0/2     Completed   0          18s
+rancher-d5fbd4f44-2lgrx            1/1     Running     0          2m28s
+rancher-d5fbd4f44-twb4j            1/1     Running     0          2m28s
+rancher-d5fbd4f44-z72xq            1/1     Running     0          2m28s
+rancher-webhook-5f68dbcb8d-f4trb   1/1     Running     0          14s
+
+bash-3.2$ kubectl -n cattle-system rollout status deploy/rancher
+deployment "rancher" successfully rolled out
+
+bash-3.2$ kubectl -n cattle-system get deploy rancher
+NAME      READY   UP-TO-DATE   AVAILABLE   AGE
+rancher   3/3     3            3           13m
+----
+Log into Rancher Server UI
+
+image::SUSE-TrilioVault-3.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
+
+
+
 
 
 
