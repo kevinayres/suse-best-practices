@@ -226,11 +226,11 @@ Set up DNS. In this example, I am using AWS R53 DNS for both by registrar and zo
 
 We can see that the CNAME record I create for the Ingress controller matches the DNS name created during Ingress deployment. 
 
-image::SUSE-TrilioVault-1.jpg[scaledwidth="75%", align="center"]  
+image::TRD-Kubernetes-ss-trilio-aws-01.jpg[scaledwidth="75%", align="center"]  
 
 Add an additional alias record for the desired Rancher Server FQDN: https://rancher.suse-demo2.de
 
-image::SUSE-TrilioVault-2.jpg[scaledwidth="75%", align="center"]  
+image::TRD-Kubernetes-ss-trilio-aws-02.jpg[scaledwidth="75%", align="center"]  
 
 Add the latest HELM chart for Rancher to your workstation
 
@@ -360,9 +360,9 @@ rancher   3/3     3            3           13m
 ----
 Log into Rancher Server UI
 
-image::SUSE-TrilioVault-3.jpg[scaledwidth="75%", align="center"]  
+image::TRD-Kubernetes-ss-trilio-aws-03.jpg[scaledwidth="75%", align="center"]  
 
-image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
+// image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
 
 
 
@@ -545,7 +545,7 @@ Note: TVK Operator deployment as Rancher Partner chart is supported only on Ranc
 . Click on the k8s-triliovault-operator  to begin the Operator installation on the K8s cluster
 . You can select the desired namespace from the 'Namespace' dropdown list for the installation. 
 . Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
-
++
 [source,bash]
 ----
 helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
