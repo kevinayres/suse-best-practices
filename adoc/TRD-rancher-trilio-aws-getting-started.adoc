@@ -422,101 +422,28 @@ https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/attac
 
 The overall workflow for provisioning new storage is as follows:
 
+0. Create the S3 bucket target with the correct parameters to support immutability. Reference: https://aws.amazon.com/blogs/storage/protecting-data-with-amazon-s3-object-lock/ 
+
 1. Add a StorageClass and configure it to use your storage provider. The StorageClass could refer to storage in an infrastructure provider, or it could refer to your own storage.
 2. Add a persistent volume claim (PVC) that refers to the storage class.
 3. Mount the PVC as a volume for your workload.
 
 See section https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/provisioning-new-storage[Dynamically Provisioning New Storage in Rancher] for details and prerequisites.
 
+=== Configuring your S3 bucket
+I will begin by creating a new S3 bucket called "immutaabletarget2" for this example. Bucket Versioning and Object Lock are enabled. 
+
+image::SUSE-TrilioVault-5.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-6.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-7.jpg[scaledwidth="75%", align="center"]  
+
+From the bucket properties via the AWS Console, I can glean the buckets Amazon Resource Name (ARN), in this case "arn:aws:s3:::immutabletarget2"
 
 === Creating a storage class for TrilioVault
 
 When the Kubernetes cluster is running and storage is configured, it is time to deploy a highly available S3 Target.
-
-MongoDB resources are created in Kubernetes as custom resources. After you create or update a MongoDB Kubernetes resource specification, 
-you direct MongoDB Kubernetes Operator to apply this specification to your Kubernetes environment. 
-Kubernetes Operator creates the defined StatefulSets, services and other Kubernetes resources. 
-After the Operator finishes creating those objects, it updates the Ops Manager deployment configuration to reflect changes.
-
-The following example shows a resource specification for a 
-https://docs.mongodb.com/manual/reference/glossary/#term-replica-set[replica set] configuration:
-
-[source,bash]
-----
-apiVersion: mongodb.com/v1
-kind: MongoDB
-metadata:
-  name: my-replica-set
-spec:
-  members: 3
-  version: "4.2.2-ent"
-  service: my-service
-  opsManager: # Alias of cloudManager
-    configMapRef:
-      name: my-project
-  credentials: my-credentials
-  persistent: true
-  type: ReplicaSet
-  podSpec:
-    cpu: "0.25"
-    memory: "512M"
-    persistence:
-      multiple:
-        data:
-          storage: "10Gi"
-        journal:
-          storage: "1Gi"
-          labelSelector:
-            matchLabels:
-              app: "my-app"
-        logs:
-          storage: "500M"
-          storageClass: standard
-    podAntiAffinityTopologyKey: nodeId
-    podAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: security
-            operator: In
-            values:
-            - S1
-        topologyKey: failure-domain.beta.kubernetes.io/zone
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: kubernetes.io/e2e-az-name
-            operator: In
-            values:
-            - e2e-az1
-            - e2e-az2
-    podTemplate:
-      metadata:
-        labels:
-          label1: mycustomlabel
-      spec:
-        affinity:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-              - podAffinityTerm:
-                  topologyKey: "mykey"
-                weight: 50
-  security:
-    tls:
-      enabled: true
-    authentication:
-      enabled: true
-      modes: ["X509"]
-      internalCluster: "X509"
-  additionalMongodConfig:
-    net:
-      ssl:
-        mode: preferSSL
-----
-
-Full details can be found https://docs.mongodb.com/kubernetes-operator/master/reference/k8s-operator-specification[here].
-
 
 == Creating a persistent volume
 
