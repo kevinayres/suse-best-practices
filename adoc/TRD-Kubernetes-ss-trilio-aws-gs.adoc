@@ -14,6 +14,7 @@
 :sles: SUSE Linux Enterprise Server
 
 == Motivation
+
 Agility is the name of the game in modern application development.  This is driving developers toward more agile, 
 cloud native methodologies that focus on microservices architectures and streamlined workflows.  
 Container technologies, like Kubernetes, embody this agile approach and help enable cloud native transformation.
@@ -26,7 +27,6 @@ Amazon Web Services the world leader in public cloud services. Native Kubernetes
 TrilioVault is a cloud native backup technology that brings all the power of the traditional, backup software and provides a more natural way to work with modern data.  TrilioVault offers a variety of compelling features that make it a natural partner for a SUSE Rancher agile data platform, including: 
 
 Data Protection::
-
 Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data.
 
 Disaster Recovery::
@@ -422,16 +422,15 @@ https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/attac
 
 The overall workflow for provisioning new storage is as follows:
 
-0. Create the S3 bucket target with the correct parameters to support immutability. Reference: https://aws.amazon.com/blogs/storage/protecting-data-with-amazon-s3-object-lock/ 
-
-1. Add a StorageClass and configure it to use your storage provider. The StorageClass could refer to storage in an infrastructure provider, or it could refer to your own storage.
-2. Add a persistent volume claim (PVC) that refers to the storage class.
-3. Mount the PVC as a volume for your workload.
+. Create the S3 bucket target with the correct parameters to support immutability. Reference: https://aws.amazon.com/blogs/storage/protecting-data-with-amazon-s3-object-lock/ 
+. Add a StorageClass and configure it to use your storage provider. The StorageClass could refer to storage in an infrastructure provider, or it could refer to your own storage.
+. Add a persistent volume claim (PVC) that refers to the storage class.
+. Mount the PVC as a volume for your workload.
 
 See section https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/provisioning-new-storage[Dynamically Provisioning New Storage in Rancher] for details and prerequisites.
 
 === Configuring your S3 bucket
-I will begin by creating a new S3 bucket called "immutaabletarget2" for this example. Bucket Versioning and Object Lock are enabled. 
+I will begin by creating a new S3 bucket called "immutabletarget2" for this example. Bucket Versioning and Object Lock are enabled. 
 
 image::SUSE-TrilioVault-5.jpg[scaledwidth="75%", align="center"]  
 
