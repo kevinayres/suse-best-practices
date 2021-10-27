@@ -1,0 +1,676 @@
+:docinfo:
+
+// = {title}
+= TrilioVault with SUSE Rancher on AWS - Getting Started
+
+// SUSE Rancher - Trilio - AWS
+// :author: Kevin Ayres, Terry Smith, Stephen Mogg, Prashanto Kochavara, 
+:revnumber: 0.0.1
+:toc2:
+:toc-title: TrilioVault with SUSE Rancher on AWS - Getting Started
+
+:toclevels: 4
+
+:sles: SUSE Linux Enterprise Server
+
+== Motivation
+Agility is the name of the game in modern application development.  This is driving developers toward more agile, 
+cloud native methodologies that focus on microservices architectures and streamlined workflows.  
+Container technologies, like Kubernetes, embody this agile approach and help enable cloud native transformation. 
+
+SUSE Rancher simplifies Kubernetes management, empowering you to take control of your IT landscape and create 
+an agile data platform that accelerates achievement of your goals. Rancher enables you to manage dynamic, robust, multi-cluster Kubernetes environments and supports any CNCF-certified Kubernetes distribution.  With built-in resilience and scalability, unified security and policy management, and a rich catalog of shared tools and services, Rancher helps you accelerate development-to-production and innovate everywhere.
+
+Amazon Web Services the world leader in public cloud services. Native Kubernetes cluster services such as Elastic Kubernetes Service (EKS), as well as native storage services provide an ideal integration point for SUSE Rancher with TrilioVault backups. By leveraging low touch EKS deployment, and the immutable storage capabilities within TrilioVault, Amazon S3 and Glacier, the administrator is empowered with unparalleled data integrity, agility, and mobility. 
+
+TrilioVault is a cloud native backup technology that brings all the power of the traditional, backup software and provides a more natural way to work with modern data.  TrilioVault offers a variety of compelling features that make it a natural partner for a SUSE Rancher agile data platform, including: 
+
+Data Protection::
+
+Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data.
+
+Disaster Recovery::
+Based on Trilio's backup and recovery technology, point-in-time backups and restores can be created for cloud-native applications protecting them from data corruption or other malicious activity on production data. The same backup and recovery technology can be leveraged in case of outages at the primary site to restore an entire environment to a separate location, fulfilling Disaster Recovery.
+
+TrilioVault backups are application aware and include all artifacts that define the application. These include persistent data, Pod definitions, config maps, secrets, and other items. It recovers the entire application allowing you to achieve the most optimal RTO possible. 
+
+Migration::
+You may need to migrate applications from one cloud platform to another or one Kubernetes cluster to a different Kubernetes cluster. Most businesses and compliance initiatives are now mandating IT organizations to have a proven multi-cloud strategy - so that they are not locked to a specific cloud vendor. IT departments are now required to demonstrate their multi-cloud strategy by recovering business applications in multiple clouds. By choosing cloud storage as backup target, TrilioVault can demonstrate an application migration use case. In this scenario, customers can easily migrate their workloads to Amazon EKS and manage them with Rancher. 
+
+Test and Development::
+Another popular use case is test and development for DevOps. There are a plethora of tools that can help you achieve DevOps, but most of them lack the capability to version control the production data. Exiting DevOp tools can help version control the code and help you streamline processes. However, in some instances you may a need point-in-time of production data for you DevOps processes including identifying performance bottlenecks, troubleshooting data corruption and other issues. TrilioVault can reliably restore a point-in-time of your production application including its associated data for test and development needs.
+
+Ransomware Protection::
+Trilio provides and will continue to innovate its strategy to protect against ransomware attacks. Ransomware protection from Trilio is aligned to the pillars of the NIST and NCCoE cybersecurity frameworks. The pillars are defined as Identify and Protect, Detect and Mitigate, and Recover. Trilio has built (and is building) features to align with these pillars:
+
+. Identify and Protect - Application discovery, Security Validations Immutable backups, Encryption, Zero-Trust etc.
+. Detect and Mitigate - Scanning of Backups, Anomaly Detection, Notifications into Slack/Teams etc.
+. Recover - Deep logging, Isolation testing, DR workflows and multiple target types to increase recoverability surface.
+
+== Technical overview
+
+SUSE Rancher is a lightweight Kubernetes installer and orchestration tool that supports installation on bare-metal and virtualized machines and instances.  Rancher solves a common issue in the Kubernetes community: installation complexity and manageability.  With Rancher, Kubernetes is greatly simplified. Rancher manages landscapes across k8s distributions and geographies from a single pane of glass.
+
+This document reviews considerations for deploying and managing a highly secure application backup topology using SUSE Rancher, TrilioVault and Amazon S3 storage.
+
+In practice, the process is as follows:
+
+* Deploy your control plane EKS cluster and install Rancher Server using command line tools such as 'eksctl' and HELM per https://rancher.com/docs/rancher/v2.6/en/installation/install-rancher-on-k8s/amazon-eks/ 
+* Use Rancher to deploy a second AWS EKS Cluster for production Pods.
+* Install a cloud native storage solution on Kubernetes such as Amazon S3. 
+* Configure a storage class and define storage requirements via Operator
+* Install TrilioVault via HELM. 
+* Test backup, recovery, and data immutability (delete/rename/encrypt protection.) 
+
+== Value of backup data integrity
+
+One of the primary benefits of running a Kubernetes environment is flexibility, the ability to easily adapt to varying circumstances.  
+Traditional database deployments exist in fairly static configurations and environments.  The beauty of running a data-oriented service 
+on Kubernetes lies in maintaining stability while enabling adaptability to meet real-world situations.
+
+Imagine a scenario where your e-commerce site is consistently taking 100 orders per day.  Suddenly, a viral marketing event occurs, 
+and your site is pushed to 5000 orders per day for a day.  This increase could easily lead to data overload – or worse, 
+corruption or downtime, which could result to considerable loss of revenue.  Having a way to design for such failure scenarios 
+and maintain resilient operations is a tangible market advantage.
+
+MongoDB can run in a single node configuration and in a clustered configuration using replica sets (not to be confused with 
+Kubernetes Stateful Sets). A replica set is a group of MongoDB instances that maintain the same data. A replica set contains 
+several data-bearing nodes and optionally one arbiter node. Of the data-bearing nodes, one and only one member is deemed the primary node,
+while the other nodes are deemed secondary nodes.  Resiliency of the data is achieved, as illustrated below.
+
+**update this image - Rancher HA on Cloud ? ** 
+image::rancher-mongo-1.png[scaledwidth="75%", align="center"]  
+
+Rancher Server provides for fully HA deployment scenarios, which, when combined with Kubernetes native high availabilty features and highly available storage targets, provides for a completely available infrastructure solution. 
+
+== Setting up a cluster with SUSE Rancher
+
+SUSE Rancher is a tool to install and configure Kubernetes in a choice of environments including bare metal, virtual machines, and IaaS. 
+Rancher is a complete container management platform built on upstream Kubernetes.
+
+This solution stack consists of four major components:
+* A certified Kubernetes Distribution (EKS)
+* A Kubernetes Management platform (Rancher)
+* Backup and recovery application capable of supporting immutability (TrilioVault) 
+* S3 target such Amazon S3, which supports immutability features
+
+Rancher has the capabilities of managing any CNCF certified Kubernetes cluster from a central location, via the Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor such as EKS, and is not restricted to Rancher donated distributions such as RKE or K3S.
+
+In this quick Demonstration we will establish a cloud hosted cluster using EKS via the guidance proided by SUSE-Rancher: https://rancher.com/docs/rancher/v2.5/en/installation/install-rancher-on-k8s/amazon-eks/ 
+
+After preparing our workstation by configuring your 'aws cli' environment and downloading the necessary tools as outlined in the beforementioned document, we wil deploy a simple EKS cluster.  For this demonstration, We'll deploy a single node cluster in 1 availability zone. This takes about 20 minutes. 
+
+[source,bash]
+----
+bash-3.2$ eksctl create cluster \
+  --name rancher-server   --version 1.18   --region us-west-2 \
+  --nodegroup-name ranchernodes  --nodes 1 \
+  --nodes-min 1   --nodes-max 1  --managed
+2021-10-11 11:57:08 [ℹ]  eksctl version 0.67.0
+2021-10-11 11:57:08 [ℹ]  using region us-west-2
+2021-10-11 11:57:08 [ℹ]  setting availability zones to [us-west-2c us-west-2d us-west-2b]
+2021-10-11 11:57:08 [ℹ]  subnets for us-west-2c - public:192.168.0.0/19 private:192.168.96.0/19
+2021-10-11 11:57:08 [ℹ]  subnets for us-west-2d - public:192.168.32.0/19 private:192.168.128.0/19
+2021-10-11 11:57:08 [ℹ]  subnets for us-west-2b - public:192.168.64.0/19 private:192.168.160.0/19
+2021-10-11 11:57:08 [ℹ]  nodegroup "ranchernodes" will use "" [AmazonLinux2/1.18]
+2021-10-11 11:57:08 [ℹ]  using Kubernetes version 1.18
+2021-10-11 11:57:08 [ℹ]  creating EKS cluster "rancher-server" in "us-west-2" region with managed nodes
+2021-10-11 11:57:08 [ℹ]  will create 2 separate CloudFormation stacks for cluster itself and the initial managed nodegroup
+2021-10-11 11:57:08 [ℹ]  if you encounter any issues, check CloudFormation console or try 'eksctl utils describe-stacks --region=us-west-2 --cluster=rancher-server'
+2021-10-11 11:57:08 [ℹ]  CloudWatch logging will not be enabled for cluster "rancher-server" in "us-west-2"
+2021-10-11 11:57:08 [ℹ]  you can enable it with 'eksctl utils update-cluster-logging --enable-types={SPECIFY-YOUR-LOG-TYPES-HERE (e.g. all)} --region=us-west-2 --cluster=rancher-server'
+2021-10-11 11:57:08 [ℹ]  Kubernetes API endpoint access will use default of {publicAccess=true, privateAccess=false} for cluster "rancher-server" in "us-west-2"
+2021-10-11 11:57:08 [ℹ]  2 sequential tasks: { create cluster control plane "rancher-server", 3 sequential sub-tasks: { wait for control plane to become ready, 1 task: { create addons }, create managed nodegroup "ranchernodes" } }
+2021-10-11 11:57:08 [ℹ]  building cluster stack "eksctl-rancher-server-cluster"
+2021-10-11 11:57:09 [ℹ]  deploying stack "eksctl-rancher-server-cluster"
+2021-10-11 11:57:39 [ℹ]  waiting for CloudFormation stack "eksctl-rancher-server-cluster"
+2021-10-11 12:16:21 [ℹ]  building managed nodegroup stack "eksctl-rancher-server-nodegroup-ranchernodes"
+2021-10-11 12:16:21 [ℹ]  deploying stack "eksctl-rancher-server-nodegroup-ranchernodes"
+2021-10-11 12:16:21 [ℹ]  waiting for CloudFormation stack "eksctl-rancher-server-nodegroup-ranchernodes"
+....
+2021-10-11 12:20:17 [ℹ]  waiting for the control plane availability...
+2021-10-11 12:20:17 [✔]  saved kubeconfig as "/Users/kevinayres/.kube/config"
+2021-10-11 12:20:17 [ℹ]  no tasks
+2021-10-11 12:20:17 [✔]  all EKS cluster resources for "rancher-server" have been created
+2021-10-11 12:20:17 [ℹ]  nodegroup "ranchernodes" has 1 node(s)
+2021-10-11 12:20:17 [ℹ]  node "ip-192-168-71-182.us-west-2.compute.internal" is ready
+2021-10-11 12:20:17 [ℹ]  waiting for at least 1 node(s) to become ready in "ranchernodes"
+2021-10-11 12:20:17 [ℹ]  nodegroup "ranchernodes" has 1 node(s)
+2021-10-11 12:20:17 [ℹ]  node "ip-192-168-71-182.us-west-2.compute.internal" is ready
+2021-10-11 12:22:21 [ℹ]  kubectl command should work with "/Users/kevinayres/.kube/config", try 'kubectl get nodes'
+2021-10-11 12:22:21 [✔]  EKS cluster "rancher-server" in "us-west-2" region is ready
+----
+
+We will validte the cluster 
+
+[source,bash]
+----
+bash-3.2$ eksctl get cluster
+2021-10-11 12:44:25 [ℹ]  eksctl version 0.67.0
+2021-10-11 12:44:25 [ℹ]  using region us-west-2
+NAME		REGION		EKSCTL CREATED
+rancher-server	us-west-2	True
+----
+
+Install an Ingress Controller. You can optionally terminate SSL/TLS externally via a Load balancer
+
+[source,bash]
+----
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm upgrade --install \
+  ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --set controller.service.type=LoadBalancer \
+  --version 3.12.0 \
+  --create-namespace
+Release "ingress-nginx" does not exist. Installing it now.
+NAME: ingress-nginx
+LAST DEPLOYED: Mon Oct 11 12:51:36 2021
+NAMESPACE: ingress-nginx
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+The ingress-nginx controller has been installed.
+It may take a few minutes for the LoadBalancer IP to be available.
+You can watch the status by running 'kubectl --namespace ingress-nginx get services -o wide -w ingress-nginx-controller'
+
+An example Ingress that makes use of the controller:
+
+  apiVersion: networking.k8s.io/v1beta1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    name: example
+    namespace: foo
+  spec:
+    rules:
+      - host: www.example.com
+        http:
+          paths:
+            - backend:
+                serviceName: exampleService
+                servicePort: 80
+              path: /
+    # This section is only required if TLS is to be enabled for the Ingress
+    tls:
+        - hosts:
+            - www.example.com
+          secretName: example-tls
+
+If TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:
+
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: example-tls
+    namespace: foo
+  data:
+    tls.crt: <base64 encoded cert>
+    tls.key: <base64 encoded key>
+  type: kubernetes.io/tls
+----
+
+Get Load Balancer IP
+
+[source,bash]
+----
+bash-3.2$ kubectl get service ingress-nginx-controller --namespace=ingress-nginx
+NAME                       TYPE           CLUSTER-IP       EXTERNAL-IP                                                              PORT(S)                      AGE
+ingress-nginx-controller   LoadBalancer   10.100.114.221   ab5241f5b6fd94a4f858fa064fc0dc91-798843822.us-west-2.elb.amazonaws.com   80:30000/TCP,443:32694/TCP   2m44s
+----
+
+Set up DNS. In this example, I am using AWS R53 DNS for both by registrar and zones objects. I chose the domain name suse-demo2.de
+
+We can see that the CNAME record I create for the Ingress controller matches the DNS name created during Ingress deployment. 
+
+image::SUSE-TrilioVault-1.jpg[scaledwidth="75%", align="center"]  
+
+Add an additional alias record for the desired Rancher Server FQDN: https://rancher.suse-demo2.de
+
+image::SUSE-TrilioVault-2.jpg[scaledwidth="75%", align="center"]  
+
+Add the latest HELM chart for Rancher to your workstation
+
+[source,bash]
+----
+bash-3.2$ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+"rancher-latest" has been added to your repositories
+----
+
+Create a namespace
+
+[source,bash]
+----
+bash-3.2$ kubectl create namespace cattle-system
+namespace/cattle-system created
+----
+
+Install a Certificate Manager with JetStack for TLS 
+
+[source,bash]
+----
+bash-3.2$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.crds.yaml
+customresourcedefinition.apiextensions.k8s.io/certificaterequests.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/certificates.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/challenges.acme.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/clusterissuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/issuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/orders.acme.cert-manager.io created
+
+bash-3.2$ helm repo add jetstack https://charts.jetstack.io
+"jetstack" has been added to your repositories
+
+bash-3.2$ helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "ingress-nginx" chart repository
+...Successfully got an update from the "jetstack" chart repository
+...Successfully got an update from the "rancher-latest" chart repository
+Update Complete. ⎈Happy Helming!⎈
+
+bash-3.2$ helm install cert-manager jetstack/cert-manager   --namespace cert-manager   --create-namespace   --version v1.5.1
+NAME: cert-manager
+LAST DEPLOYED: Mon Oct 11 13:54:58 2021
+NAMESPACE: cert-manager
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+cert-manager v1.5.1 has been deployed successfully!
+
+In order to begin issuing certificates, you will need to set up a ClusterIssuer
+or Issuer resource (for example, by creating a 'letsencrypt-staging' issuer).
+
+More information on the different types of issuers and how to configure them
+can be found in our documentation:
+
+https://cert-manager.io/docs/configuration/
+
+For information on how to configure cert-manager to automatically provision
+Certificates for Ingress resources, take a look at the `ingress-shim`
+documentation:
+
+https://cert-manager.io/docs/usage/ingress/
+----
+
+Confirm Cert Manager is running
+
+[source,bash]
+----
+bash-3.2$ kubectl get pods --namespace cert-manager
+NAME                                      READY   STATUS    RESTARTS   AGE
+cert-manager-68fbdc7f4b-smdpx             1/1     Running   0          75s
+cert-manager-cainjector-d685c7bcf-mnpgs   1/1     Running   0          75s
+cert-manager-webhook-689f8c697b-7ddgv     1/1     Running   0          75s
+----
+
+Install Rancher as a container
+
+[source,bash]
+----
+bash-3.2$ helm install rancher rancher-latest/rancher   --namespace cattle-system   --set hostname=rancher.suse-demo2.de   --set bootstrapPassword=admin
+NAME: rancher
+LAST DEPLOYED: Mon Oct 11 13:59:29 2021
+NAMESPACE: cattle-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Rancher Server has been installed.
+
+NOTE: Rancher may take several minutes to fully initialize. Please standby while Certificates are being issued, Containers are started and the Ingress rule comes up.
+
+Check out our docs at https://rancher.com/docs/
+
+If you provided your own bootstrap password during installation, browse to https://rancher.suse-demo2.de to get started.
+
+If this is the first time you installed Rancher, get started by running this command and clicking the URL it generates:
+```
+echo https://rancher.suse-demo2.de/dashboard/?setup=$(kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}')
+```
+To get just the bootstrap password on its own, run:
+```
+kubectl get secret --namespace cattle-system bootstrap-secret -o go-template='{{.data.bootstrapPassword|base64decode}}{{ "\n" }}'
+```
+Happy Containering!
+----
+
+Verify pods are running
+[source,bash]
+----
+bash-3.2$ kubectl get pods --namespace=cattle-system
+NAME                               READY   STATUS      RESTARTS   AGE
+helm-operation-29cqm               0/2     Completed   0          26s
+helm-operation-5zlwv               0/2     Completed   0          36s
+helm-operation-hggmq               0/2     Completed   0          56s
+helm-operation-mp54x               0/2     Completed   0          18s
+rancher-d5fbd4f44-2lgrx            1/1     Running     0          2m28s
+rancher-d5fbd4f44-twb4j            1/1     Running     0          2m28s
+rancher-d5fbd4f44-z72xq            1/1     Running     0          2m28s
+rancher-webhook-5f68dbcb8d-f4trb   1/1     Running     0          14s
+
+bash-3.2$ kubectl -n cattle-system rollout status deploy/rancher
+deployment "rancher" successfully rolled out
+
+bash-3.2$ kubectl -n cattle-system get deploy rancher
+NAME      READY   UP-TO-DATE   AVAILABLE   AGE
+rancher   3/3     3            3           13m
+----
+Log into Rancher Server UI
+
+image::SUSE-TrilioVault-3.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
+
+
+
+
+
+
+== General Storage considerations
+
+When deploying an application that needs to retain data, you need to create persistent storage. 
+Persistent storage allows you to store application data external from the pod running your application. 
+This storage practice allows you to maintain application data, even if the application’s pod fails.
+
+A variety of storage options exist and can be used to create an HA data solution with Rancher.  
+Some considerations you may need to follow for your storage solution include:
+
+* Volumes as persistent storage for the distributed stateful applications, such as databases
+
+* Partitioned block storage for Kubernetes volumes with or without a cloud provider
+
+* Replicated block storage across multiple nodes and data centers to increase availability
+
+* Secondary data backup storage (for example, NFS or S3)
+
+* Cross-cluster disaster recovery volumes
+
+* Recurring volume snapshots
+
+* Recurring backups to secondary storage
+
+* Non-disruptive upgrades
+
+* S3 backup targets must support versioning and retention/deletion policies to support data immutability.  
+
+In this Solution Stack we're discussing Amazon S3 object storage as a backup target for TrilioVault. The S3 bucket can be deployed directly from TrilioVault. 
+
+https://aws.amazon.com/s3/[AWS S3]:: 
+Distributed Object Storage native to AWS. Amazon S3 object stores are HA by default amd are available across all regions, and therefore to all pods and clusters, and scale indefinitely. Amazon S3 also supports data immutability, in concert with TrilioVault. 
+
+Before proceeding, be sure that you understand the Kubernetes concepts of persistent volumes, persistent volume claims, and 
+storage classes.  For more information, refer to 
+https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/how-storage-works[How Persistent Storage Works] in the Rancher documentation.
+
+== TrilioVault for Kubernetes Pre-Flight
+
+Before proceeding with the install of the TrilioVault for Kubernetes solution, a pre-flight check should be performed to ensure that the cluster is prepared correctly for a TrilioVault installation. Trilio provides a preflight check via Krew (kubectl based extension) to validate a Kubernetes cluster before install. The preflight validator confirms configuration settings such as availability of a storageclass, volumesnapshotclass, correct utilities exist etc. 
+Please follow the instructions from https://docs.trilio.io/kubernetes/support/support-and-issue-filing/tvk-preflight-checks[Trilio Pre-Flight]
+
+== Deploying TrilioVault for Kubernetes Operator
+
+TrilioVault for Kubernetes provides an operator as a Rancher Partner Chart for Kubernetes cluster deployments and it is present on the Rancher Apps & Marketplace. Here are the instructions to install TVK as a Rancher Partner Chart on RKE cluster deployment.
+
+Note: TVK Operator deployment as Rancher Partner chart is supported only on Rancher server v2.5 and above.
+
+. Login to the Rancher Server web console
+. Select the EKS cluster deployment from the list of cluster deployments, click on the cluster name to view details
+. Click on the Cluster Explorer on top right corner to view all resources
+. Click on the dropdown 'Cluster Explorer' on the top left corner and select 'Apps & Marketplace'
+. From the list of the Partner Charts type 'Trilio' in the filter to see TVK operator
+. Click on the k8s-triliovault-operator  to begin the Operator installation on the K8s cluster
+. You can select the desired namespace from the 'Namespace' dropdown list for the installation. 
+. Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
+
+[source,bash]
+----
+helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
+creating 8 resource(s)
+beginning wait for 8 resources with timeout of 10m0s
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+Deployment is not ready: default/k8s-triliovault-operator. 0 out of 1 expected pods are ready
+NAME: k8s-triliovault-operator
+LAST DEPLOYED: Thu Apr 8 07:15:53 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+To verify that TrilioVault Operator has started, run:
+kubectl --namespace=default get deployments -l "release=k8s-triliovault-operator"
+---------------------------------------------------------------------
+SUCCESS: helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
+---------------------------------------------------------------------
+----
+
+After the installation is complete, you can verify it from the list of 'Installed Apps'
+
+
+== Installing TrilioVault Manager
+
+TrilioVault manager is an instance of the TrilioVault solution running in your namespace or your cluster (as the solution supports both namespace and cluster scoped deployments)
+
+This section assumes that you have installed kubectl and helm installed and correctly configured to work with desired Kubernetes cluster. 
+As part of the install, Trilio first requires the Operator to be deployed (which was done in the previous step), after which the application is deployed via the TrilioVault Manager (TVM) Resource created by the Operator.
+
+* Add the Trilio Helm repository to your local setup
+[source,bash]
+----
+helm repo add triliovault-operator http://charts.k8strilio.net/trilio-stable/k8s-triliovault-operator
+helm repo add triliovault http://charts.k8strilio.net/trilio-stable/k8s-triliovault
+helm repo update
+----
+
+* Verify TrilioVault operator pods are running
+[source,bash]
+----
+$ kubectl get pods -l release=triliovault-operator
+NAME                                                             READY   STATUS    RESTARTS   AGE
+triliovault-operator-k8s-triliovault-operator-7bf447967f-w5tgd   1/1     Running   0          2m7s
+----
+
+* Deploy TrilioVault Manager
+The TrilioVault custom resource name is TrilioVaultManager
+TrilioVault Operator defines this Custom Resource (CR).
+To configure resource limits for TVK components please refer to https://docs.trilio.io/kubernetes/performance/configuring-resource-limits [Resource Limits]
+Installation via Helm v3
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: TrilioVaultManager
+metadata:
+  labels:
+    triliovault: triliovault
+  name: triliovault-manager
+  namespace: default
+spec:
+  trilioVaultAppVersion: v2.1.0
+  helmVersion:
+    version: v3
+  applicationScope: Cluster
+  #restoreNamespaces: ["kube-system", "default", "restore-ns"]
+  #resources:
+    #requests:
+      #memory: 400Mi
+----
+
+In the CRD example below,restoreNamespaces is optional.  To restrict restores to specific namespaces  specify the namespaces for that field.
+[source,bash]
+----
+$ kubectl create -f triliovault-manager.yaml
+----
+
+* List CR of TrilioVaultManager
+[source,bash]
+----
+kubectl get triliovaultmanager
+NAME                  TRILIOVAULT-VERSION   SCOPE     STATUS     RESTORE-NAMESPACES
+triliovault-manager   v2.1.0                Cluster   Deployed   [kube-system default restore-ns]
+----
+
+* List pods created by TrilioVaultManager CR are running
+[source,bash]
+----
+$ kubectl get pods
+k8s-triliovault-admission-webhook-544b566979-4lw7q                1/1     Running     0          7d2h
+k8s-triliovault-backend-5b79996f48-djzd4                          1/1     Running     0          7d2h
+k8s-triliovault-control-plane-78c7d589fb-d2829                    1/1     Running     0          7d2h
+k8s-triliovault-exporter-789c785968-vn7hf                         1/1     Running     0          7d2h
+k8s-triliovault-ingress-controller-54c55b58cf-vw7s7               1/1     Running     0          7d2h
+k8s-triliovault-web-85d58df67b-jqnln                              1/1     Running     0          7d2h
+----
+
+* TrilioVault is now successfully installed on your cluster.
+
+== Test Namespace Capture and Recovery
+ 
+Trilio supports multiple ways of capturing applications - labels, helm, operators, namespaces and direct object reference, however, for this guide we will validate a successful installation and operation of TrilioVault for Kubernetes, perform a Namespace backup/restore.
+
+High-level Steps:
+
+. Create a namespace called 'wordpress'  
+. Use helm to deploy a wordpress application into the namespace.
+. Perform a backup of the namespace
+. Delete the namespace/application
+. Create a new namespace 'wordpress-restore'
+. Perform a Restore of the namespace
+
+Detailed Steps:
+
+* Create a namespace and deploy the application*
+** Create the namespace called 'wordpress'
+[source,bash]
+----
+$ kubectl create ns wordpress
+namespace/wordpress created
+----
+
+** Install the wordpress Helm Chart
+[source,bash]
+----
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install my-release bitnami/wordpress
+----
+You can launch the wordpress app via a browser and make changes to the sample page to ensure changes are captured when you restore.
+
+* Create a Namespace Backup
+
+** Create a backupPlan to backup the namespace
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: BackupPlan
+metadata:
+  name: ns-backupplan-1
+  namespace: wordpress
+spec:
+  backupConfig:
+    target:
+      namespace: default
+      name: demo-s3-target
+----
+
+** Backup the Namespace
+Use the following YAML to build the Backup CR
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: Backup
+metadata:
+  name: wordpress-ns-backup-1
+  namespace: wordpress
+spec:
+  type: Full
+  scheduleType: OneTime
+  backupPlan:
+    name: ns-backupplan-1
+    namespace: wordpress
+----
+
+* Delete the namespace*
+[source,bash]
+----
+kubectl delete ns wordpress
+----
+
+* Create a new namespace*
+[source,bash]
+----
+kubectl create ns wordpress-restore
+----
+
+* Restore the Backup/Namespace*
+[source,bash]
+----
+apiVersion: triliovault.trilio.io/v1
+kind: Restore
+metadata:
+  name: ns-restore
+  namespace: wordpress-restore
+spec:
+  source:
+    type: Backup
+    backup:
+      name: wordpress-ns-backup-1
+      namespace: wordpress
+  restoreNamespace: wordpress-restore
+----
+
+Validate the pods are up and running after restore completes.
+[source,bash]
+----
+$ kubectl get restore
+NAME         BACKUP                  STATUS      DATA SIZE   START TIME             END TIME               PERCENTAGE COMPLETED
+ns-restore   wordpress-ns-backup-1   Completed   188312911   2020-11-13T18:47:33Z   2020-11-13T18:49:58Z   100
+----
+
+[source,bash]
+----
+$ kubectl get pods 
+NAME                              READY   STATUS    RESTARTS   AGE
+wordy-mariadb-0                   1/1     Running   0          4m21s
+wordy-wordpress-5cc764564-mngrm   1/1     Running   0          4m21s
+----
+
+Finally, confirm the changes on the wordpress launch pages that were made earlier.
+
+== Summary
+
+TrilioVault for Kubernetes provides data management and data protection capabilities for your Kubernetes based applications running on SUSE Rancher. Trilio can be managed and operated fully via the CLI as well as the feature rich management console provided by Trilio.
+
+== Additional resources
+
+For more information, visit: 
+
+*	https://rancher.com/docs/rancher/v2.x/en/best-practices/[Rancher best practices guide]
+*	https://rancher.com/docs/rancher/v2.x/en/troubleshooting/[Rancher troubleshooting tips]
+*	https://docs.trilio.io/kubernetes/[TrilioVault for Kubernetes Documentation]
+*	https://docs.trilio.io/kubernetes/use-triliovault/installing-triliovault#rancher-deployments[Trilio Documentation for Rancher Deployments]
+*	https://docs.trilio.io/kubernetes/overview/getting-started [TrilioVault for Kubernetes Getting-Started]
+*	https://docs.trilio.io/kubernetes/architecture/custom-resource-definitions-application-1 [TrilioVault API Reference]
+
+++++
+<?pdfpagebreak?>
+++++
+
+:leveloffset: 0
+// Standard SUSE Best Practices includes
+== Legal notice
+include::common_sbp_legal_notice.adoc[]
+
+++++
+<?pdfpagebreak?>
+++++
+
+// Standard SUSE Best Practices includes
+// include::common_gfdl1.2_i.adoc[]
+
+:leveloffset: 0
+include::common_gfdl1.2_i.adoc[]
+
+//end
