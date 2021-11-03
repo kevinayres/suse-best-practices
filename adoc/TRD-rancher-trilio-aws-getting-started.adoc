@@ -358,10 +358,6 @@ image::SUSE-TrilioVault-3.jpg[scaledwidth="75%", align="center"]
 image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
 
 
-
-
-
-
 == General Storage considerations
 
 When deploying an application that needs to retain data, you need to create persistent storage. 
@@ -508,11 +504,13 @@ Before proceeding with the install of the TrilioVault for Kubernetes solution, a
 Please follow the instructions from https://docs.trilio.io/kubernetes/support/support-and-issue-filing/tvk-preflight-checks
 [source,bash]
 ----
-kubectl tvk-preflight --storageclass 
-
+$ kubectl tvk-preflight --storageclass csi-hostpath-sc 
+tr: Illegal byte sequence
+/Users/kevinayres/.krew/bin/kubectl-tvk_preflight: line 47: syntax error near unexpected token `>'
+/Users/kevinayres/.krew/bin/kubectl-tvk_preflight: line 47: `  echo -n "[$(date +'%F %H:%M:%S')] " &>>"${LOG_FILE}"'
 ----
 
-== Deploying TrilioVault for Kubernetes Operator
+== Deploying TrilioVault for Kubernetes Operator from the Rancher Console
 
 TrilioVault for Kubernetes provides an operator as a Rancher Partner Chart for Kubernetes cluster deployments and it is present on the Rancher Apps & Marketplace. Here are the instructions to install TVK as a Rancher Partner Chart on RKE cluster deployment.
 
@@ -527,6 +525,7 @@ Note: TVK Operator deployment as Rancher Partner chart is supported only on Ranc
 . You can select the desired namespace from the 'Namespace' dropdown list for the installation. In this example, the 'Default' Namespace is fine. 
 . Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
 
+Appears in the Rancher console CLI output
 [source,bash]
 ----
 helm install --namespace=default --timeout=10m0s --values=/home/shell/helm/values-k8s-triliovault-operator-v2.0.200.yaml --version=v2.0.200 --wait=true k8s-triliovault-operator /home/shell/helm/k8s-triliovault-operator-v2.0.200.tgz
@@ -560,7 +559,6 @@ As part of the install, Trilio first requires the Operator to be deployed (which
 * Add the Trilio Helm repository to your local setup
 [source,bash]
 ----
-$ helm repo add triliovault-operator http://charts.k8strilio.net/trilio-stable/k8s-triliovault-operator
 $ helm repo add triliovault http://charts.k8strilio.net/trilio-stable/k8s-triliovault
 $ helm repo update
 ----
@@ -600,10 +598,12 @@ spec:
 ----
 
 In the CRD example below,restoreNamespaces is optional.  To restrict restores to specific namespaces  specify the namespaces for that field.
+
+Installation
 [source,bash]
 ----
 $ kubectl create -f triliovault-manager.yaml
-triliovaultmanager.triliovault.trilio.io/triliovault-manager created
+error: unable to recognize "triliovault-manager.yaml": no matches for kind "TrilioVaultManager" in version "triliovault.trilio.io/v1"
 ----
 
 * List CR of TrilioVaultManager
