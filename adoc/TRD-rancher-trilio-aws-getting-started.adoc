@@ -69,14 +69,7 @@ Traditional database deployments exist in fairly static configurations and envir
 on Kubernetes lies in maintaining stability while enabling adaptability to meet real-world situations.
 
 Imagine a scenario where your e-commerce site is consistently taking 100 orders per day.  Suddenly, a viral marketing event occurs, 
-and your site is pushed to 5000 orders per day for a day.  This increase could easily lead to data overload – or worse, 
-corruption or downtime, which could result to considerable loss of revenue.  Having a way to design for such failure scenarios 
-and maintain resilient operations is a tangible market advantage.
-
-MongoDB can run in a single node configuration and in a clustered configuration using replica sets (not to be confused with 
-Kubernetes Stateful Sets). A replica set is a group of MongoDB instances that maintain the same data. A replica set contains 
-several data-bearing nodes and optionally one arbiter node. Of the data-bearing nodes, one and only one member is deemed the primary node,
-while the other nodes are deemed secondary nodes.  Resiliency of the data is achieved, as illustrated below.
+and your site is pushed to 5000 orders per day for a day.  This increase could easily lead to data overload – or worse, corruption or downtime, which could result to considerable loss of revenue.  Having a way to design for such failure scenarios and maintain resilient operations is a tangible market advantage.
 
 **update this image - Rancher HA on Cloud ? ** 
 image::rancher-mongo-1.png[scaledwidth="75%", align="center"]  
@@ -102,7 +95,7 @@ After preparing our workstation by configuring your 'aws cli' environment and do
 
 [source,bash]
 ----
-bash-3.2$ eksctl create cluster \
+$ eksctl create cluster \
   --name rancher-server   --version 1.18   --region us-west-2 \
   --nodegroup-name ranchernodes  --nodes 1 \
   --nodes-min 1   --nodes-max 1  --managed
@@ -145,7 +138,7 @@ We will validte the cluster
 
 [source,bash]
 ----
-bash-3.2$ eksctl get cluster
+$ eksctl get cluster
 2021-10-11 12:44:25 [ℹ]  eksctl version 0.67.0
 2021-10-11 12:44:25 [ℹ]  using region us-west-2
 NAME		REGION		EKSCTL CREATED
@@ -217,7 +210,7 @@ Get Load Balancer IP
 
 [source,bash]
 ----
-bash-3.2$ kubectl get service ingress-nginx-controller --namespace=ingress-nginx
+$ kubectl get service ingress-nginx-controller --namespace=ingress-nginx
 NAME                       TYPE           CLUSTER-IP       EXTERNAL-IP                                                              PORT(S)                      AGE
 ingress-nginx-controller   LoadBalancer   10.100.114.221   ab5241f5b6fd94a4f858fa064fc0dc91-798843822.us-west-2.elb.amazonaws.com   80:30000/TCP,443:32694/TCP   2m44s
 ----
@@ -236,7 +229,7 @@ Add the latest HELM chart for Rancher to your workstation
 
 [source,bash]
 ----
-bash-3.2$ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+$ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 "rancher-latest" has been added to your repositories
 ----
 
@@ -244,7 +237,7 @@ Create a namespace
 
 [source,bash]
 ----
-bash-3.2$ kubectl create namespace cattle-system
+$ kubectl create namespace cattle-system
 namespace/cattle-system created
 ----
 
@@ -252,7 +245,7 @@ Install a Certificate Manager with JetStack for TLS
 
 [source,bash]
 ----
-bash-3.2$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.crds.yaml
+$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.crds.yaml
 customresourcedefinition.apiextensions.k8s.io/certificaterequests.cert-manager.io created
 customresourcedefinition.apiextensions.k8s.io/certificates.cert-manager.io created
 customresourcedefinition.apiextensions.k8s.io/challenges.acme.cert-manager.io created
@@ -260,17 +253,17 @@ customresourcedefinition.apiextensions.k8s.io/clusterissuers.cert-manager.io cre
 customresourcedefinition.apiextensions.k8s.io/issuers.cert-manager.io created
 customresourcedefinition.apiextensions.k8s.io/orders.acme.cert-manager.io created
 
-bash-3.2$ helm repo add jetstack https://charts.jetstack.io
+$ helm repo add jetstack https://charts.jetstack.io
 "jetstack" has been added to your repositories
 
-bash-3.2$ helm repo update
+$ helm repo update
 Hang tight while we grab the latest from your chart repositories...
 ...Successfully got an update from the "ingress-nginx" chart repository
 ...Successfully got an update from the "jetstack" chart repository
 ...Successfully got an update from the "rancher-latest" chart repository
 Update Complete. ⎈Happy Helming!⎈
 
-bash-3.2$ helm install cert-manager jetstack/cert-manager   --namespace cert-manager   --create-namespace   --version v1.5.1
+$ helm install cert-manager jetstack/cert-manager   --namespace cert-manager   --create-namespace   --version v1.5.1
 NAME: cert-manager
 LAST DEPLOYED: Mon Oct 11 13:54:58 2021
 NAMESPACE: cert-manager
@@ -299,7 +292,7 @@ Confirm Cert Manager is running
 
 [source,bash]
 ----
-bash-3.2$ kubectl get pods --namespace cert-manager
+$ kubectl get pods --namespace cert-manager
 NAME                                      READY   STATUS    RESTARTS   AGE
 cert-manager-68fbdc7f4b-smdpx             1/1     Running   0          75s
 cert-manager-cainjector-d685c7bcf-mnpgs   1/1     Running   0          75s
@@ -310,7 +303,7 @@ Install Rancher as a container
 
 [source,bash]
 ----
-bash-3.2$ helm install rancher rancher-latest/rancher   --namespace cattle-system   --set hostname=rancher.suse-demo2.de   --set bootstrapPassword=admin
+$ helm install rancher rancher-latest/rancher   --namespace cattle-system   --set hostname=rancher.suse-demo2.de   --set bootstrapPassword=admin
 NAME: rancher
 LAST DEPLOYED: Mon Oct 11 13:59:29 2021
 NAMESPACE: cattle-system
@@ -340,7 +333,7 @@ Happy Containering!
 Verify pods are running
 [source,bash]
 ----
-bash-3.2$ kubectl get pods --namespace=cattle-system
+$ kubectl get pods --namespace=cattle-system
 NAME                               READY   STATUS      RESTARTS   AGE
 helm-operation-29cqm               0/2     Completed   0          26s
 helm-operation-5zlwv               0/2     Completed   0          36s
@@ -351,10 +344,10 @@ rancher-d5fbd4f44-twb4j            1/1     Running     0          2m28s
 rancher-d5fbd4f44-z72xq            1/1     Running     0          2m28s
 rancher-webhook-5f68dbcb8d-f4trb   1/1     Running     0          14s
 
-bash-3.2$ kubectl -n cattle-system rollout status deploy/rancher
+$ kubectl -n cattle-system rollout status deploy/rancher
 deployment "rancher" successfully rolled out
 
-bash-3.2$ kubectl -n cattle-system get deploy rancher
+$ kubectl -n cattle-system get deploy rancher
 NAME      READY   UP-TO-DATE   AVAILABLE   AGE
 rancher   3/3     3            3           13m
 ----
@@ -396,7 +389,7 @@ Some considerations you may need to follow for your storage solution include:
 
 * S3 backup targets must support versioning and retention/deletion policies to support data immutability.  
 
-In this Solution Stack we're discussing Amazon S3 object storage as a backup target for TrilioVault. The S3 bucket can be deployed directly from TrilioVault. 
+In this Solution Stack we're discussing Amazon S3 object storage as a backup target for TrilioVault. The S3 bucket must be built prior to configuring the target in TrilioVault. 
 
 https://aws.amazon.com/s3/[AWS S3]:: 
 Distributed Object Storage native to AWS. Amazon S3 object stores are HA by default amd are available across all regions, and therefore to all pods and clusters, and scale indefinitely. Amazon S3 also supports data immutability, in concert with TrilioVault. 
@@ -405,10 +398,119 @@ Before proceeding, be sure that you understand the Kubernetes concepts of persis
 storage classes.  For more information, refer to 
 https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/how-storage-works[How Persistent Storage Works] in the Rancher documentation.
 
+== Create AWS S3 Bucket
+The overall workflow for provisioning new storage is as follows:
+
+0. Create the S3 bucket target with the correct parameters to support immutability. Reference: https://aws.amazon.com/blogs/storage/protecting-data-with-amazon-s3-object-lock/ 
+1. Add a StorageClass and configure it to use your storage provider. The StorageClass could refer to storage in an infrastructure provider, or it could refer to your own storage.
+2. Add a persistent volume claim (PVC) that refers to the storage class.
+3. Mount the PVC as a volume for your workload.
+
+See section https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/provisioning-new-storage[Dynamically Provisioning New Storage in Rancher] for details and prerequisites.
+
+=== Configuring your S3 bucket
+We'll begin by creating a new S3 bucket called "immutaabletarget2" for this example. Object Lock will be enabled, which also turns on Bucket Versioning.  
+
+image::SUSE-TrilioVault-5.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-6.jpg[scaledwidth="75%", align="center"]  
+
+image::SUSE-TrilioVault-7.jpg[scaledwidth="75%", align="center"]  
+
+From the bucket properties via the AWS Console, I can glean the buckets' Amazon Resource Name (ARN), in this case "arn:aws:s3:::immutabletarget2"
+
+== Install the Hostpath CSI driver
+Since EKS leverages Kubernetes 1.18.2 at the time of this writing, we will leverage the following procedure to install the driver: https://github.com/kubernetes-csi/csi-driver-host-path/blob/master/docs/deploy-1.17-and-later.md 
+
+[source,bash]
+----
+$ SNAPSHOTTER_VERSION=v2.0.1
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml
+$ ./deploy.sh
+$ kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+csi-hostpath-socat-0    1/1     Running   0          38s
+csi-hostpathplugin-0    9/9     Running   0          40s
+snapshot-controller-0   1/1     Running   0          3m7s
+----
+
+The CSI driver is now installed. 
+
+==Create a Storage Class and VolumeSnapshot Class for Hostpath
+[source,bash]
+----
+$ cat storageclass.yaml 
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: csi-hostpath-sc
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: hostpath.csi.k8s.io
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+
+$ kubectl apply -f storageclass.yaml 
+storageclass.storage.k8s.io/csi-hostpath-sc created
+
+$ cat volumesnapshotclass.yaml 
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshotClass
+metadata:
+  name: default-snapshot-class
+driver: hostpath.csi.k8s.io
+deletionPolicy: Delete
+
+$ kubectl apply -f volumesnapshotclass.yaml 
+volumesnapshotclass.snapshot.storage.k8s.io/default-snapshot-class created
+----
+
+Create a Test Volume and test Snapshot
+[source,bash]
+----
+$ cat task-pv-claim.yaml
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshot
+metadata:
+  name: new-snapshot
+spec:
+  volumeSnapshotClassName: default-snapshot-class
+  source:
+    persistentVolumeClaimName: task-pv-claim
+$ kubectl apply -f task-pv-claim.yaml 
+volumesnapshot.snapshot.storage.k8s.io/new-snapshot created
+
+$ cat snapshot-task-pv-claim.yaml 
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshot
+metadata:
+  name: new-snapshot
+spec:
+  volumeSnapshotClassName: default-snapshot-class
+  source:
+    persistentVolumeClaimName: task-pv-claim
+$ kubectl apply -f snapshot-task-pv-claim.yaml 
+volumesnapshot.snapshot.storage.k8s.io/new-snapshot unchanged
+----
+
+Verify if snapshot and volume snapshot content shows a created snapshot.
+[source,bash]
+----
+
+
 == TrilioVault for Kubernetes Pre-Flight
 
 Before proceeding with the install of the TrilioVault for Kubernetes solution, a pre-flight check should be performed to ensure that the cluster is prepared correctly for a TrilioVault installation. Trilio provides a preflight check via Krew (kubectl based extension) to validate a Kubernetes cluster before install. The preflight validator confirms configuration settings such as availability of a storageclass, volumesnapshotclass, correct utilities exist etc. 
-Please follow the instructions from https://docs.trilio.io/kubernetes/support/support-and-issue-filing/tvk-preflight-checks[Trilio Pre-Flight]
+Please follow the instructions from https://docs.trilio.io/kubernetes/support/support-and-issue-filing/tvk-preflight-checks
+[source,bash]
+----
+kubectl tvk-preflight --storageclass 
+
+----
 
 == Deploying TrilioVault for Kubernetes Operator
 
@@ -422,7 +524,7 @@ Note: TVK Operator deployment as Rancher Partner chart is supported only on Ranc
 . Click on the dropdown 'Cluster Explorer' on the top left corner and select 'Apps & Marketplace'
 . From the list of the Partner Charts type 'Trilio' in the filter to see TVK operator
 . Click on the k8s-triliovault-operator  to begin the Operator installation on the K8s cluster
-. You can select the desired namespace from the 'Namespace' dropdown list for the installation. 
+. You can select the desired namespace from the 'Namespace' dropdown list for the installation. In this example, the 'Default' Namespace is fine. 
 . Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
 
 [source,bash]
@@ -448,9 +550,6 @@ SUCCESS: helm install --namespace=default --timeout=10m0s --values=/home/shell/h
 ---------------------------------------------------------------------
 ----
 
-After the installation is complete, you can verify it from the list of 'Installed Apps'
-
-
 == Installing TrilioVault Manager
 
 TrilioVault manager is an instance of the TrilioVault solution running in your namespace or your cluster (as the solution supports both namespace and cluster scoped deployments)
@@ -461,17 +560,17 @@ As part of the install, Trilio first requires the Operator to be deployed (which
 * Add the Trilio Helm repository to your local setup
 [source,bash]
 ----
-helm repo add triliovault-operator http://charts.k8strilio.net/trilio-stable/k8s-triliovault-operator
-helm repo add triliovault http://charts.k8strilio.net/trilio-stable/k8s-triliovault
-helm repo update
+$ helm repo add triliovault-operator http://charts.k8strilio.net/trilio-stable/k8s-triliovault-operator
+$ helm repo add triliovault http://charts.k8strilio.net/trilio-stable/k8s-triliovault
+$ helm repo update
 ----
 
 * Verify TrilioVault operator pods are running
 [source,bash]
 ----
-$ kubectl get pods -l release=triliovault-operator
-NAME                                                             READY   STATUS    RESTARTS   AGE
-triliovault-operator-k8s-triliovault-operator-7bf447967f-w5tgd   1/1     Running   0          2m7s
+$ kubectl --namespace=default get deployments -l "release=k8s-triliovault-operator"
+NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+k8s-triliovault-operator   1/1     1            1           91s
 ----
 
 * Deploy TrilioVault Manager
@@ -481,6 +580,7 @@ To configure resource limits for TVK components please refer to https://docs.tri
 Installation via Helm v3
 [source,bash]
 ----
+$ cat triliovault-manager.yaml
 apiVersion: triliovault.trilio.io/v1
 kind: TrilioVaultManager
 metadata:
@@ -489,7 +589,7 @@ metadata:
   name: triliovault-manager
   namespace: default
 spec:
-  trilioVaultAppVersion: v2.1.0
+  trilioVaultAppVersion: 2.5.0
   helmVersion:
     version: v3
   applicationScope: Cluster
@@ -503,6 +603,7 @@ In the CRD example below,restoreNamespaces is optional.  To restrict restores to
 [source,bash]
 ----
 $ kubectl create -f triliovault-manager.yaml
+triliovaultmanager.triliovault.trilio.io/triliovault-manager created
 ----
 
 * List CR of TrilioVaultManager
