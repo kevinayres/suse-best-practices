@@ -34,7 +34,7 @@ Based on Trilio's backup and recovery technology, point-in-time backups and rest
 
 TrilioVault backups are application aware and include all artifacts that define the application. These include persistent data, Pod definitions, config maps, secrets, and other items. It recovers the entire application allowing you to achieve the most optimal RTO possible. 
 
-Migration::
+Migration and data mobility::
 You may need to migrate applications from one cloud platform to another or one Kubernetes cluster to a different Kubernetes cluster. Most businesses and compliance initiatives are now mandating IT organizations to have a proven multi-cloud strategy - so that they are not locked to a specific cloud vendor. IT departments are now required to demonstrate their multi-cloud strategy by recovering business applications in multiple clouds. By choosing cloud storage as backup target, TrilioVault can demonstrate an application migration use case. In this scenario, customers can easily migrate their workloads to Amazon EKS and manage them with Rancher. 
 
 Test and Development::
@@ -51,13 +51,13 @@ Trilio provides and will continue to innovate its strategy to protect against ra
 
 SUSE Rancher is a lightweight Kubernetes installer and orchestration tool that supports installation on bare-metal and virtualized machines and instances.  Rancher solves a common issue in the Kubernetes community: installation complexity and manageability.  With Rancher, Kubernetes is greatly simplified. Rancher manages landscapes across k8s distributions and geographies from a single pane of glass.
 
-This document reviews considerations for deploying and managing a highly secure application backup topology using SUSE Rancher, TrilioVault and Amazon S3 storage.
+This document reviews considerations for deploying and managing a highly secure microservice application backup topology using SUSE Rancher, TrilioVault and Amazon S3 storage.
 
 In practice, the process is as follows:
 
-* Deploy your control plane EKS cluster and install Rancher Server using command line tools such as 'eksctl' and HELM per https://rancher.com/docs/rancher/v2.6/en/installation/install-rancher-on-k8s/amazon-eks/ 
-* Use Rancher to deploy a second AWS EKS Cluster for production Pods.
-* Install a cloud native storage solution on Kubernetes such as Amazon S3. 
+* Deploy your control plane EKS cluster and install Rancher Server as a pod using command line tools such as 'eksctl' and HELM per https://rancher.com/docs/rancher/v2.6/en/installation/install-rancher-on-k8s/amazon-eks/ 
+* Use Rancher to deploy a second AWS EKS Cluster for production Pods. 
+* Configure a cloud native storage solution on Kubernetes such as Amazon S3. 
 * Configure a storage class and define storage requirements via Operator
 * Install TrilioVault via HELM. 
 * Test backup, recovery, and data immutability (delete/rename/encrypt protection.) 
@@ -69,34 +69,32 @@ Traditional database deployments exist in fairly static configurations and envir
 on Kubernetes lies in maintaining stability while enabling adaptability to meet real-world situations.
 
 Imagine a scenario where your e-commerce site is consistently taking 100 orders per day.  Suddenly, a viral marketing event occurs, 
-and your site is pushed to 5000 orders per day for a day.  This increase could easily lead to data overload – or worse, corruption or downtime, which could result to considerable loss of revenue.  Having a way to design for such failure scenarios and maintain resilient operations is a tangible market advantage.
+and your site is pushed to 5000 orders per day for a day.  This increase could easily lead to data overload – or worse, corruption or downtime, which could result to considerable loss of revenue.  Having a way to design for such failure scenarios and maintain resilient operations is a tangible market advantage. Quite simply, when it comes to your data, all the eggs are literally in one basket. The entire value of you corporate IP is attached to this living data. Designing around failure scenarios is key to business continuity. 
 
 **update this image - Rancher HA on Cloud ? ** 
 image::rancher-mongo-1.png[scaledwidth="75%", align="center"]  
 
-Rancher Server provides for fully HA deployment scenarios, which, when combined with Kubernetes native high availabilty features and highly available storage targets, provides for a completely available infrastructure solution. 
+Rancher Server provides for fully HA deployment scenarios, which, when combined with Kubernetes native high availabilty features and highly available storage targets such as AWS EBS and S3 object storage, provides for a completely available infrastructure solution. 
 
-== Setting up a cluster with SUSE Rancher
+== Setting up a k8s cluster with SUSE Rancher
 
-SUSE Rancher is a tool to install and configure Kubernetes in a choice of environments including bare metal, virtual machines, and IaaS. 
-Rancher is a complete container management platform built on upstream Kubernetes.
+SUSE Rancher is a tool to install and configure Kubernetes in a choice of environments including bare metal, virtual machines, and IaaS/CSP. Rancher is a complete container management platform built on upstream Kubernetes. 
 
 This solution stack consists of four major components:
 * A certified Kubernetes Distribution (EKS)
 * A Kubernetes Management platform (Rancher)
-* Backup and recovery application capable of supporting immutability (TrilioVault) 
+* Backup and recovery application capable of supporting immutability (TrilioVault), which supports immutability features 
 * S3 target such Amazon S3, which supports immutability features
 
 Rancher has the capabilities of managing any CNCF certified Kubernetes cluster from a central location, via the Rancher server.  As illustrated below, Rancher can manage any Kubernetes flavor such as EKS, and is not restricted to Rancher donated distributions such as RKE or K3S.
 
 In this quick Demonstration we will establish a cloud hosted cluster using EKS via the guidance proided by SUSE-Rancher: https://rancher.com/docs/rancher/v2.5/en/installation/install-rancher-on-k8s/amazon-eks/ 
 
-After preparing our workstation by configuring your 'aws cli' environment and downloading the necessary tools as outlined in the beforementioned document, we wil deploy a simple EKS cluster.  For this demonstration, We'll deploy a single node cluster in 1 availability zone. This takes about 20 minutes. 
-
+After preparing our workstation by configuring your 'aws cli' environment and downloading the necessary tools as outlined in the beforementioned document, we wil deploy a simple EKS cluster.  For this demonstration, we'll deploy a single node cluster in 1 availability zone. This takes about 20 minutes. For a production environment, standard HA deisgn with separate clusters for cluster management applications and production worklaods would be appropriate. For guidance on this process, please consult the AWS Well Architected Framework (WAF) per https://aws.amazon.com/architecture/well-architected/ and SUSE Consulting Services at https://www.suse.com/services/consulting/ 
 [source,bash]
 ----
 $ eksctl create cluster \
-  --name rancher-server   --version 1.18   --region us-west-2 \
+  --name rancher-server   --version 2.12   --region us-west-2 \
   --nodegroup-name ranchernodes  --nodes 1 \
   --nodes-min 1   --nodes-max 1  --managed
 2021-10-11 11:57:08 [ℹ]  eksctl version 0.67.0
@@ -134,8 +132,7 @@ $ eksctl create cluster \
 2021-10-11 12:22:21 [✔]  EKS cluster "rancher-server" in "us-west-2" region is ready
 ----
 
-We will validte the cluster 
-
+We will validate the cluster 
 [source,bash]
 ----
 $ eksctl get cluster
@@ -146,7 +143,6 @@ rancher-server	us-west-2	True
 ----
 
 Install an Ingress Controller. You can optionally terminate SSL/TLS externally via a Load balancer
-
 [source,bash]
 ----
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
@@ -207,7 +203,6 @@ If TLS is enabled for the Ingress, a Secret containing the certificate and key m
 ----
 
 Get Load Balancer IP
-
 [source,bash]
 ----
 $ kubectl get service ingress-nginx-controller --namespace=ingress-nginx
@@ -226,7 +221,6 @@ Add an additional alias record for the desired Rancher Server FQDN: https://ranc
 image::SUSE-TrilioVault-2.jpg[scaledwidth="75%", align="center"]  
 
 Add the latest HELM chart for Rancher to your workstation
-
 [source,bash]
 ----
 $ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
@@ -234,7 +228,6 @@ $ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 ----
 
 Create a namespace
-
 [source,bash]
 ----
 $ kubectl create namespace cattle-system
@@ -242,7 +235,6 @@ namespace/cattle-system created
 ----
 
 Install a Certificate Manager with JetStack for TLS 
-
 [source,bash]
 ----
 $ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.crds.yaml
@@ -289,7 +281,6 @@ https://cert-manager.io/docs/usage/ingress/
 ----
 
 Confirm Cert Manager is running
-
 [source,bash]
 ----
 $ kubectl get pods --namespace cert-manager
@@ -299,8 +290,7 @@ cert-manager-cainjector-d685c7bcf-mnpgs   1/1     Running   0          75s
 cert-manager-webhook-689f8c697b-7ddgv     1/1     Running   0          75s
 ----
 
-Install Rancher as a container
-
+Install Rancher as a pod
 [source,bash]
 ----
 $ helm install rancher rancher-latest/rancher   --namespace cattle-system   --set hostname=rancher.suse-demo2.de   --set bootstrapPassword=admin
@@ -353,11 +343,6 @@ rancher   3/3     3            3           13m
 ----
 Log into Rancher Server UI
 
-image::SUSE-TrilioVault-3.jpg[scaledwidth="75%", align="center"]  
-
-image::SUSE-TrilioVault-4.jpg[scaledwidth="75%", align="center"]  
-
-
 == General Storage considerations
 
 When deploying an application that needs to retain data, you need to create persistent storage. 
@@ -385,6 +370,8 @@ Some considerations you may need to follow for your storage solution include:
 
 * S3 backup targets must support versioning and retention/deletion policies to support data immutability.  
 
+See section https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/provisioning-new-storage[Dynamically Provisioning New Storage in Rancher] for details and prerequisites.
+
 In this Solution Stack we're discussing Amazon S3 object storage as a backup target for TrilioVault. The S3 bucket must be built prior to configuring the target in TrilioVault. 
 
 https://aws.amazon.com/s3/[AWS S3]:: 
@@ -398,22 +385,15 @@ https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/how-s
 The overall workflow for provisioning new storage is as follows:
 
 0. Create the S3 bucket target with the correct parameters to support immutability. Reference: https://aws.amazon.com/blogs/storage/protecting-data-with-amazon-s3-object-lock/ 
+For the correct AWS Policy attached to the bucket or user, reference: https://docs.trilio.io/kubernetes/architecture/resourcepermissions/aws-s3-target-permissions 
 1. Add a StorageClass and configure it to use your storage provider. The StorageClass could refer to storage in an infrastructure provider, or it could refer to your own storage.
 2. Add a persistent volume claim (PVC) that refers to the storage class.
 3. Mount the PVC as a volume for your workload.
 
-See section https://rancher.com/docs/rancher/v2.x/en/cluster-admin/volumes-and-storage/provisioning-new-storage[Dynamically Provisioning New Storage in Rancher] for details and prerequisites.
-
 === Configuring your S3 bucket
 We'll begin by creating a new S3 bucket called "immutaabletarget2" for this example. Object Lock will be enabled, which also turns on Bucket Versioning.  
 
-image::SUSE-TrilioVault-5.jpg[scaledwidth="75%", align="center"]  
-
-image::SUSE-TrilioVault-6.jpg[scaledwidth="75%", align="center"]  
-
-image::SUSE-TrilioVault-7.jpg[scaledwidth="75%", align="center"]  
-
-From the bucket properties via the AWS Console, I can glean the buckets' Amazon Resource Name (ARN), in this case "arn:aws:s3:::immutabletarget2"
+From the bucket properties via the AWS Console, I can glean the buckets' Amazon Resource Name (ARN), in this case "arn:aws:s3:::immutabletarget2".
 
 == Install the Hostpath CSI driver
 Since EKS leverages Kubernetes 1.18.2 at the time of this writing, we will leverage the following procedure to install the driver: https://github.com/kubernetes-csi/csi-driver-host-path/blob/master/docs/deploy-1.17-and-later.md 
@@ -522,6 +502,7 @@ Note: TVK Operator deployment as Rancher Partner chart is supported only on Ranc
 . Click on the dropdown 'Cluster Explorer' on the top left corner and select 'Apps & Marketplace'
 . From the list of the Partner Charts type 'Trilio' in the filter to see TVK operator
 . Click on the k8s-triliovault-operator  to begin the Operator installation on the K8s cluster
+  Leverage step 6 of this link to ensure you have the latest chart: https://docs.trilio.io/kubernetes/appendix/force-update-tvk-operator-in-rancher-marketplace 
 . You can select the desired namespace from the 'Namespace' dropdown list for the installation. In this example, the 'Default' Namespace is fine. 
 . Click on 'Install' button to start the installation. Users can follow the installation progress in terminal window
 
